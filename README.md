@@ -1,6 +1,6 @@
 # AI Trader backend foundation
 
-Fastify / TypeScript / PostgreSQL 17 / Drizzle. Paper mode only; read-only KIS token and domestic quotes. No order execution or AI.
+Fastify / TypeScript / PostgreSQL 17 / Drizzle. Paper mode only; read-only KIS token, domestic quotes and account portfolio. No order execution or AI.
 
 ## Prerequisites
 
@@ -124,7 +124,7 @@ application are **not verified**. No production migration was attempted. See the
 Set `KIS_APP_KEY` and `KIS_APP_SECRET` to paper credentials in the existing `.env`.
 `KIS_BASE_URL` defaults to `https://openapivts.koreainvestment.com:29443`; other URLs fail validation.
 Keep `BROKER_MODE=paper` and `LIVE_TRADING_ENABLED=false`.
-`KIS_ACCOUNT_NO` and `KIS_ACCOUNT_PRODUCT_CODE` are passed into the server but unused in this phase.
+`KIS_ACCOUNT_NO` (8 digits) and `KIS_ACCOUNT_PRODUCT_CODE` (2 digits) are required for portfolio queries.
 `configured` means that the app key and secret are present; account fields are not required for quotes.
 
 Deploy into the existing Compose project (no database migration is needed for this change):
@@ -149,13 +149,62 @@ Quote response fields: `symbol`, `price` (KRW), `change` (KRW), `changeRate` (pe
 `volume` (cumulative shares), `timestamp` (UTC receipt time, not the exchange's last-trade time).
 All financial values remain strings. Provider data is validated by Zod; raw fields/messages are not exposed.
 Invalid symbols return 400; configuration/provider unavailability 503; authentication/invalid response 502.
-These APIs do not implement orders, account queries, strategies, AI analysis or a Risk Engine.
+These APIs do not implement orders, strategies, AI analysis or a Risk Engine.
 
 Official references: [token request](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/auth/auth_token/auth_token.py),
 [domestic quote request](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_price/inquire_price.py),
 [quote field mapping](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_price/chk_inquire_price.py).
 
-KIS implementation validation: `pnpm typecheck`, `pnpm lint`, `pnpm test` (59 tests) and
+Initial quote implementation validation: `pnpm typecheck`, `pnpm lint`, `pnpm test` (59 tests) and
 `pnpm build` passed. Docker CLI is unavailable in the implementation workspace; the image and real
 KIS connection must be verified on the deployment host. See
 [completed implementation plan](docs/exec-plans/completed/kis-paper-quotes.md).
+
+## Paper account portfolio
+
+`GET /api/v1/portfolio` reads the configured KIS paper account through the application AccountBroker
+port. It shares token issuance/cache with quotes and status; no balances are written to PostgreSQL.
+Missing/invalid account configuration returns `configuration_error` (503) without a provider request.
+Quote and broker status still work without account fields; status continues to probe quotes only.
+Account number and product code must be separate, e.g. 8 digits and a two-digit code with its leading zero.
+
+| Portfolio field | Meaning / mapping |
+| --- | --- |
+| cash | `dnca_tot_amt`: deposit balance in KRW, not buying power/withdrawable cash |
+| totalEvaluation | `tot_evlu_amt`: KIS total account evaluation in KRW |
+| totalPurchaseAmount | `pchs_amt_smtl_amt`: holdings purchase cost in KRW |
+| totalProfitLoss | `evlu_pfls_smtl_amt`: holdings valuation P/L in KRW |
+| totalProfitLossRate | P/L / purchase cost × 100, two decimals, half away from zero |
+| positions | Positive-quantity holdings; temporarily retained zero-quantity rows are omitted |
+
+Position fields: symbol/name, quantity/availableQuantity (shares), averagePrice/currentPrice (KRW),
+evaluationAmount/profitLoss (KRW), profitLossRate (percentage). All numeric fields remain strings.
+Total percentage uses exact BigInt arithmetic; zero cost and zero P/L returns `0.00`.
+Zero cost with nonzero P/L is rejected, not fabricated. The result is not historical trading performance.
+
+KIS paper balances are paginated. The adapter follows continuation headers/keys, waits one second
+between pages, and never adds repeated account-wide totals. A repeated cursor, duplicate symbol,
+changed summary, missing continuation header or more than 20 pages fails with
+`provider_invalid_response` (502); a later failure never returns partial positions.
+These checks detect some changes during paging but do not guarantee a broker-side atomic snapshot.
+Absent/empty account summary returns `account_unavailable` (503); malformed fields return
+`provider_invalid_response` (502). Other provider/authentication errors retain the quote API categories.
+Responses set `Cache-Control: no-store`; provider payloads/account credentials are not logged or returned.
+
+Deploy using the existing `.env` and Compose project; no migration is needed:
+
+```bash
+docker compose -p <existing-project> config --quiet
+docker compose -p <existing-project> build server
+docker compose -p <existing-project> up -d --no-deps server
+curl --fail http://127.0.0.1:3200/api/v1/portfolio
+```
+
+The curl performs an actual read-only account query. Automated tests use stubs.
+Existing Compose variables already pass account credentials; DB service/volumes/networks are unchanged.
+Official references: [balance request and pagination](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_balance/inquire_balance.py),
+[balance field mapping](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_balance/chk_inquire_balance.py).
+
+Portfolio validation: `pnpm typecheck`, `pnpm lint`, `pnpm test` (117 tests) and `pnpm build`
+passed. No actual account query or deployment was performed during implementation. See
+[completed portfolio plan and changed-file list](docs/exec-plans/completed/kis-portfolio.md).

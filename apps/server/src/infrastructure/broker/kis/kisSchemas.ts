@@ -8,12 +8,12 @@ export const tokenSchema = z.object({
 });
 export const envelopeSchema = z.object({ rt_cd: z.string().min(1), msg_cd: z.string().optional() });
 const numericString = z.string().refine((value) => value.trim() === value);
-const decimal = numericString.regex(/^[+-]?\d+(\.\d+)?$/);
+export const decimalString = numericString.max(64).regex(/^[+-]?\d+(\.\d+)?$/);
 export const quoteSchema = z.object({
   output: z.object({
     stck_prpr: numericString.regex(/^\d+$/),
-    prdy_vrss: decimal,
-    prdy_ctrt: decimal,
+    prdy_vrss: decimalString,
+    prdy_ctrt: decimalString,
     acml_vol: numericString.regex(/^\d+$/),
   }),
 });

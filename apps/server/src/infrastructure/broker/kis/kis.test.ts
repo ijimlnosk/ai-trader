@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { createKisClient, KIS_PAPER_URL, type KisFetch } from './kisClient.ts';
 import { createKisTokenProvider } from './kisTokenProvider.ts';
-import { createKisQuoteAdapter } from './index.ts';
+import { createKisBroker } from './index.ts';
 
 const config = { baseUrl: KIS_PAPER_URL, appKey: 'fixture-key', appSecret: 'fixture-secret' };
 const token = { access_token: 'fixture-token', token_type: 'Bearer', expires_in: 3600 };
@@ -49,7 +49,7 @@ it.each([{}, { ...token, expires_in: '3600' }, { ...token, expires_in: 0 }, { ..
 });
 it('maps quote without float conversion or provider fields and uses official query/header', async () => {
   const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token)).mockResolvedValueOnce(json(quote));
-  const adapter = createKisQuoteAdapter(config, fetcher, () => Date.UTC(2026, 8, 15));
+  const adapter = createKisBroker(config, fetcher, () => Date.UTC(2026, 8, 15));
   expect(await adapter.getQuote('005930')).toEqual({ symbol: '005930', price: '70000', change: '-1000', changeRate: '-1.41', volume: '9007199254740993', timestamp: '2026-09-15T00:00:00.000Z' });
   const [url, init] = fetcher.mock.calls[1]!;
   expect(String(url)).toBe(`${KIS_PAPER_URL}/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=005930`);
@@ -57,13 +57,13 @@ it('maps quote without float conversion or provider fields and uses official que
 });
 it.each([{}, { rt_cd: '0', output: {} }, { ...quote, output: { ...quote.output, stck_prpr: 70000 } }, { ...quote, output: { ...quote.output, prdy_ctrt: 'NaN' } }])('rejects malformed quote %j', async (body) => {
   const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token)).mockResolvedValueOnce(json(body));
-  await expect(createKisQuoteAdapter(config, fetcher).getQuote('005930')).rejects.toMatchObject({ code: 'provider_invalid_response' });
+  await expect(createKisBroker(config, fetcher).getQuote('005930')).rejects.toMatchObject({ code: 'provider_invalid_response' });
 });
 it('invalidates rejected authentication without automatically retrying', async () => {
   const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token))
     .mockResolvedValueOnce(json({ rt_cd: '1', msg_cd: 'EGW00123', msg1: config.appSecret }))
     .mockResolvedValueOnce(json(token)).mockResolvedValueOnce(json(quote));
-  const adapter = createKisQuoteAdapter(config, fetcher);
+  const adapter = createKisBroker(config, fetcher);
   await expect(adapter.getQuote('005930')).rejects.toMatchObject({ code: 'authentication_error' });
   expect(fetcher).toHaveBeenCalledTimes(2);
   await adapter.getQuote('005930');
@@ -72,19 +72,19 @@ it('invalidates rejected authentication without automatically retrying', async (
 it('maps business failure, network failure and invalid JSON safely', async () => {
   for (const [response, code] of [[json({ rt_cd: '1', msg_cd: 'unknown', msg1: config.appSecret }), 'provider_unavailable'], [new Response('{'), 'provider_invalid_response']] as const) {
     const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token)).mockResolvedValueOnce(response);
-    await expect(createKisQuoteAdapter(config, fetcher).getQuote('005930')).rejects.toMatchObject({ code });
+    await expect(createKisBroker(config, fetcher).getQuote('005930')).rejects.toMatchObject({ code });
   }
   const fetcher = vi.fn<KisFetch>().mockRejectedValue(new Error(config.appSecret));
-  await expect(createKisQuoteAdapter(config, fetcher).getQuote('005930')).rejects.toMatchObject({ code: 'provider_unavailable' });
+  await expect(createKisBroker(config, fetcher).getQuote('005930')).rejects.toMatchObject({ code: 'provider_unavailable' });
 });
 it('rejects unconfigured or non-paper origins and invalid symbols without network calls', async () => {
   const fetcher = vi.fn<KisFetch>();
   for (const badConfig of [{ baseUrl: KIS_PAPER_URL }, { ...config, baseUrl: 'https://example.com' }]) {
-    const adapter = createKisQuoteAdapter(badConfig, fetcher);
+    const adapter = createKisBroker(badConfig, fetcher);
     expect(adapter.isConfigured()).toBe(false);
     await expect(adapter.getQuote('005930')).rejects.toMatchObject({ code: 'configuration_error' });
   }
-  await expect(createKisQuoteAdapter(config, fetcher).getQuote('abc')).rejects.toMatchObject({ code: 'invalid_symbol' });
+  await expect(createKisBroker(config, fetcher).getQuote('abc')).rejects.toMatchObject({ code: 'invalid_symbol' });
   expect(fetcher).not.toHaveBeenCalled();
 });
 

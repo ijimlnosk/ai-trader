@@ -1,12 +1,13 @@
 export type BrokerErrorCode =
   | 'configuration_error' | 'authentication_error' | 'provider_unavailable'
-  | 'provider_invalid_response' | 'invalid_symbol';
+  | 'provider_invalid_response' | 'invalid_symbol' | 'account_unavailable';
 
 const messages: Record<BrokerErrorCode, string> = {
   configuration_error: 'Broker configuration is incomplete or unsupported',
   authentication_error: 'Broker authentication failed',
   provider_unavailable: 'Broker provider is unavailable',
   provider_invalid_response: 'Broker provider returned an invalid response',
+  account_unavailable: 'Broker account data is unavailable',
   invalid_symbol: 'Symbol must contain exactly six digits',
 };
 

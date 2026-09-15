@@ -4,12 +4,12 @@ Composition is owned by `apps/server/src/app`: validated environment, database r
 Fastify creation and signal shutdown. `interfaces/http` maps the application health result to HTTP.
 `application/health.ts` depends on DatabaseHealth and Broker ports; PostgreSQL and PaperBroker implement
 these contracts in infrastructure. `domain/tradingSafety.ts` is a pure configuration gate.
-No domain entity is needed yet; database records are not domain entities.
+Quote and Portfolio are provider-independent domain read models; database records are not domain entities.
 
 Public shared API contracts live in `@ai-trader/contracts`. Shared strict compiler configuration
 lives in `@ai-trader/config`. Package exports prevent imports of package implementation paths.
-ESLint restricts outward dependencies from domain/application. No execution, AI, risk engine, account-data query or order HTTP endpoint exists.
-Read-only KIS authentication and domestic quote integration is implemented below.
+ESLint restricts outward dependencies from domain/application. No execution, AI, risk engine or order HTTP endpoint exists.
+Read-only KIS authentication, domestic quote and portfolio integration is implemented below.
 
 Startup checks the database before listening. Runtime health rechecks connectivity with bounded
 connection/query timeouts and returns 503 on failure. Logs omit raw environment and driver errors.
@@ -43,7 +43,8 @@ The adapter contains a bounded fetch client, Zod response schemas, a token provi
 Only `https://openapivts.koreainvestment.com:29443` is accepted at startup and at the transport boundary.
 Redirects are rejected and each request has a ten-second timeout. No automatic HTTP retry is performed.
 App key/secret come only from validated environment. Account variables are accepted and passed through
-Compose but are not needed for token/quote requests and never leave composition.
+Compose; account number/product code are passed to the portfolio adapter only for account queries.
+They are not needed for token/quote requests.
 
 Tokens are process-local, reused until 60 seconds before expires_in (measured from issuance start).
 Concurrent issuance shares one Promise; failure clears it for a later request. Authentication rejection
@@ -62,4 +63,33 @@ It does not merely infer reachability from a locally cached token. Unconfigured 
 Quote errors distinguish invalid_symbol (400), configuration_error (503), authentication_error (502),
 provider_unavailable (503), provider_invalid_response (502). Unexpected errors are sanitized to 500.
 An upstream authentication failure is 502 rather than implying the API caller's authentication failed.
-No buy/sell/order/cancel/amend, balance, execution, risk or AI methods are introduced.
+No buy/sell/order/cancel/amend, execution, risk or AI methods are introduced.
+
+## KIS paper account portfolio
+
+`GET /api/v1/portfolio` → application `createPortfolioQuery` → AccountBroker → KIS portfolio adapter.
+`createApp` constructs one `createKisBroker`; its quote and portfolio methods share `kisSession`
+and the unchanged token provider. HTTP routes share a sanitized broker error handler, with no
+infrastructure imports. Public PortfolioResponse/PositionResponse mirror the domain read models.
+The transport exposes body and continuation metadata only inside infrastructure.
+
+KIS uses paper transaction VTTC8434R and symbol-level INQR_DVSN=02. Account configuration is validated
+as 8-digit CANO and 2-digit ACNT_PRDT_CD on use; missing accounts do not break existing quote/status.
+Zod validates all required financial strings, row fields and account summary before mapping.
+No DB read/write, migration, balance caching or order authorization is introduced.
+
+`cash` means deposit balance (`dnca_tot_amt`), `totalEvaluation` means `tot_evlu_amt`, purchase cost
+means `pchs_amt_smtl_amt`, valuation P/L means `evlu_pfls_smtl_amt`. Amounts/prices are KRW, quantities
+are shares, rates are percentages, all represented as strings. Total P/L rate uses exact BigInt decimal
+arithmetic with two-place half-away-from-zero rounding. See decision 0002 for zero-cost semantics.
+Position fields explicitly map pdno/prdt_name/hldg_qty/ord_psbl_qty/pchs_avg_pric/prpr/evlu_amt/
+evlu_pfls_amt/evlu_pfls_rt. Zero-quantity historical rows are excluded from active positions.
+
+F/M response continuation triggers an N request with returned cursors, spaced one second apart.
+All pages are validated and combined; account totals are never summed. Repeated cursors, duplicate
+symbols, changed summary values, invalid/missing continuation metadata or exceeding 20 pages fail
+closed with provider_invalid_response. Pagination is not a guaranteed atomic account snapshot.
+No partial portfolio is returned after any failure. Missing/empty summary is account_unavailable (503);
+invalid fields are provider_invalid_response (502). Existing configuration/auth/provider error mapping
+is reused. Unknown KIS business errors remain provider_unavailable; no raw message is exposed.
+Portfolio HTTP responses use Cache-Control: no-store. Account values never appear in logs.

@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest';
 import { createApp } from './createApp.ts';
 import { parseEnvironment } from './environment.ts';
-import { createKisQuoteAdapter } from '../infrastructure/broker/kis/index.ts';
+import { createKisBroker } from '../infrastructure/broker/kis/index.ts';
 import { KIS_PAPER_URL, type KisFetch } from '../infrastructure/broker/kis/kisClient.ts';
 import { BrokerError, type BrokerErrorCode } from '../application/brokerError.ts';
 
@@ -14,7 +14,7 @@ function setup() {
   const fetcher = vi.fn<KisFetch>().mockImplementation(async (url) =>
     String(url).endsWith('/oauth2/tokenP')
       ? json({ access_token: secrets[2], token_type: 'Bearer', expires_in: 3600 }) : json(quote));
-  const broker = createKisQuoteAdapter({ baseUrl: KIS_PAPER_URL, appKey: secrets[0], appSecret: secrets[1] }, fetcher);
+  const broker = createKisBroker({ baseUrl: KIS_PAPER_URL, appKey: secrets[0], appSecret: secrets[1] }, fetcher);
   return { fetcher, app: createApp(environment, database, false, broker) };
 }
 it('serves quote and probes actual provider for each status while reusing token', async () => {
