@@ -27,6 +27,11 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       BROKER_MODE: ${BROKER_MODE:-paper}
       LIVE_TRADING_ENABLED: ${LIVE_TRADING_ENABLED:-false}
+      KIS_APP_KEY: ${KIS_APP_KEY:-}
+      KIS_APP_SECRET: ${KIS_APP_SECRET:-}
+      KIS_BASE_URL: ${KIS_BASE_URL:-https://openapivts.koreainvestment.com:29443}
+      KIS_ACCOUNT_NO: ${KIS_ACCOUNT_NO:-}
+      KIS_ACCOUNT_PRODUCT_CODE: ${KIS_ACCOUNT_PRODUCT_CODE:-}
     ports:
       - "127.0.0.1:3200:3000"
     depends_on:

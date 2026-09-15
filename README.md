@@ -1,6 +1,6 @@
 # AI Trader backend foundation
 
-Fastify / TypeScript / PostgreSQL 17 / Drizzle. Paper mode only; no order execution, AI or KIS.
+Fastify / TypeScript / PostgreSQL 17 / Drizzle. Paper mode only; read-only KIS token and domestic quotes. No order execution or AI.
 
 ## Prerequisites
 
@@ -118,3 +118,44 @@ configuration, live mode and unavailable DB also passed without leaking the test
 Checks ran on Node 26.7.0; the image targets Node 24 LTS.
 Docker and PostgreSQL binaries were unavailable, so actual image build, real DB connection and migration
 application are **not verified**. No production migration was attempted. See the active execution plan.
+
+## KIS paper quotes
+
+Set `KIS_APP_KEY` and `KIS_APP_SECRET` to paper credentials in the existing `.env`.
+`KIS_BASE_URL` defaults to `https://openapivts.koreainvestment.com:29443`; other URLs fail validation.
+Keep `BROKER_MODE=paper` and `LIVE_TRADING_ENABLED=false`.
+`KIS_ACCOUNT_NO` and `KIS_ACCOUNT_PRODUCT_CODE` are passed into the server but unused in this phase.
+`configured` means that the app key and secret are present; account fields are not required for quotes.
+
+Deploy into the existing Compose project (no database migration is needed for this change):
+
+```bash
+docker compose -p <existing-project> config --quiet
+docker compose -p <existing-project> build server
+docker compose -p <existing-project> up -d --no-deps server
+curl --fail http://127.0.0.1:3200/health
+curl --fail http://127.0.0.1:3200/api/v1/broker/status
+curl --fail http://127.0.0.1:3200/api/v1/market/005930/quote
+```
+
+Reuse the existing `.env`, Compose project, database network and volume. The two KIS curl calls
+perform real read-only paper API requests; automated tests use stubs and never contact KIS.
+Status returns HTTP 200 with `configured`, `reachable` and, on failure, an `error` code.
+It actively probes 005930, so polling consumes provider quote quota. The Docker healthcheck stays on `/health`.
+Token cache is in-memory per server, refreshed 60 seconds before expiry, with concurrent issuance deduplicated.
+It is cleared on restart and not shared across replicas. A failed request is not automatically retried.
+
+Quote response fields: `symbol`, `price` (KRW), `change` (KRW), `changeRate` (percent),
+`volume` (cumulative shares), `timestamp` (UTC receipt time, not the exchange's last-trade time).
+All financial values remain strings. Provider data is validated by Zod; raw fields/messages are not exposed.
+Invalid symbols return 400; configuration/provider unavailability 503; authentication/invalid response 502.
+These APIs do not implement orders, account queries, strategies, AI analysis or a Risk Engine.
+
+Official references: [token request](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/auth/auth_token/auth_token.py),
+[domestic quote request](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_price/inquire_price.py),
+[quote field mapping](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_price/chk_inquire_price.py).
+
+KIS implementation validation: `pnpm typecheck`, `pnpm lint`, `pnpm test` (59 tests) and
+`pnpm build` passed. Docker CLI is unavailable in the implementation workspace; the image and real
+KIS connection must be verified on the deployment host. See
+[completed implementation plan](docs/exec-plans/completed/kis-paper-quotes.md).

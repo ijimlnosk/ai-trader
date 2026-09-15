@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { KIS_PAPER_URL } from '../infrastructure/broker/kis/index.ts';
+
+const optionalSecret = z.string().trim().transform((value) => value || undefined).optional();
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -8,6 +11,11 @@ const schema = z.object({
     const url = new URL(value);
     return ['postgres:', 'postgresql:'].includes(url.protocol) && Boolean(url.hostname) && url.pathname.length > 1;
   }),
+  KIS_APP_KEY: optionalSecret,
+  KIS_APP_SECRET: optionalSecret,
+  KIS_BASE_URL: z.literal(KIS_PAPER_URL).default(KIS_PAPER_URL),
+  KIS_ACCOUNT_NO: optionalSecret,
+  KIS_ACCOUNT_PRODUCT_CODE: optionalSecret,
   BROKER_MODE: z.enum(['paper', 'live']).default('paper'),
   LIVE_TRADING_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 });
