@@ -1,0 +1,23 @@
+{
+  "name": "ai-trader",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=24 <27"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm --filter @ai-trader/contracts build && pnpm -r typecheck",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.10.0",
+    "typescript-eslint": "8.70.0",
+    "typescript": "~5.9.3",
+    "vitest": "5.0.0",
+    "@types/node": "^24.5.0"
+  },
+  "type": "module"
+}

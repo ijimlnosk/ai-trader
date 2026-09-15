@@ -1,0 +1,120 @@
+# AI Trader backend foundation
+
+Fastify / TypeScript / PostgreSQL 17 / Drizzle. Paper mode only; no order execution, AI or KIS.
+
+## Prerequisites
+
+Use Node.js 24 LTS and pnpm 10.17.1 (`npm install --global pnpm@10.17.1`).
+TypeScript stays on 5.9 for typescript-eslint compatibility; dependency resolutions are committed in pnpm-lock.yaml.
+
+## Local development
+
+```bash
+pnpm install
+cp .env.example .env
+# Edit .env with your LOCAL PostgreSQL connection, e.g. localhost instead of db.
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm --filter server db:migrate
+pnpm --filter server start
+# In another terminal:
+curl --fail http://127.0.0.1:3000/health
+```
+
+Use `pnpm --filter server dev` for watch mode. Tests use injected database ports and need no PostgreSQL.
+A real PostgreSQL 17 instance must be provisioned separately for local start/migration.
+`.env` is ignored; scripts load the root `.env`. Exported environment variables take precedence.
+Do not publish credentials or paste rendered Compose configuration containing secrets.
+
+## Environment
+
+| Variable | Meaning / default |
+| --- | --- |
+| NODE_ENV | development / test / production; default development |
+| HOST | default 0.0.0.0 |
+| PORT | integer 1–65535; default 3000 |
+| DATABASE_URL | required PostgreSQL URL; Docker host `db:5432`, local host depends on local setup |
+| BROKER_MODE | paper (default) / live; live startup is rejected in this version |
+| LIVE_TRADING_ENABLED | exact true / false, defaults false; alone never enables live |
+| POSTGRES_DB | Compose default ai_trader |
+| POSTGRES_USER | Compose default ai_trader |
+| POSTGRES_PASSWORD | required for Compose; no committed value |
+| POSTGRES_VOLUME_NAME | required existing PostgreSQL 17 named volume |
+
+Docker DATABASE_URL format: `postgresql://ai_trader:<URL-encoded-password>@db:5432/ai_trader`.
+Set the raw password in POSTGRES_PASSWORD; percent-encode special characters in the URL.
+Changing POSTGRES_PASSWORD does not rotate an existing PostgreSQL volume's password.
+Invalid environment values fail startup. Empty safety flags are rejected, not coerced.
+
+## Migrations
+
+```bash
+# Local: offline generation; does not connect to the database.
+pnpm --filter server db:generate
+# Local: explicitly apply to DATABASE_URL after reviewing SQL.
+pnpm build
+pnpm --filter server db:migrate
+```
+
+Initial SQL and Drizzle metadata live in `apps/server/drizzle`. Migrations never run on server startup.
+Health checks connectivity, not schema version; apply migrations separately before using future persistence features.
+
+## Ubuntu server / existing Docker PostgreSQL
+
+Do not run a second PostgreSQL container against the mounted existing volume. First identify the
+existing Compose project name, working directory, service configuration and volume with read-only tools:
+
+```bash
+docker compose ls
+docker ps --format '{{.Names}}'
+docker inspect <existing-db-container> --format '{{json .Config.Labels}}'
+docker inspect <existing-db-container> --format '{{json .Mounts}}'
+```
+
+Back up the DB before applying migrations. Integrate this file's server service into the existing Compose
+project if its configuration differs. Preserve its DB mounts, project name and network. Set
+POSTGRES_VOLUME_NAME to the exact existing named volume, never a guessed/new name. This supplied DB
+mount assumes the existing PG17 data is at `/var/lib/postgresql/data`; verify existing PGDATA too.
+The following commands assume this file matches the existing DB service and uses its project name;
+`--no-deps` intentionally avoids recreating the running DB:
+
+```bash
+cp .env.example .env
+chmod 600 .env
+# Edit .env: existing DB credentials, DATABASE_URL host=db, exact volume name, paper/false.
+# Replace <existing-project> with the existing Compose project label.
+docker compose -p <existing-project> config --quiet
+docker compose -p <existing-project> build server
+# Explicit migration only after SQL review and backup:
+docker compose -p <existing-project> run --rm --no-deps server node dist/infrastructure/database/migrate.js
+docker compose -p <existing-project> up -d --no-deps server
+curl --fail http://127.0.0.1:3200/health
+docker compose -p <existing-project> logs --tail=100 server
+```
+
+For a NEW disposable/local Compose environment only, explicitly create a new volume and set its name,
+then use `docker compose up -d db` before migration/server start. No volume creation/deletion is automated.
+Never run `docker compose down -v` or `docker volume rm` on existing infrastructure.
+PostgreSQL has no host port binding. HTTP binds `127.0.0.1:3200:3000`.
+
+Expected health: `{"status":"ok","database":"connected","tradingMode":"paper"}`.
+Database failure returns HTTP 503 with `status=error`, `database=disconnected`, no credentials.
+
+## Schema and next boundary
+
+See [architecture](docs/ARCHITECTURE.md). Four tables: trade_proposals, orders, positions,
+portfolio_snapshots. Money/price/quantity use numeric(24,8) as strings, currency is explicit,
+timestamps are timestamptz. No financial calculations are implemented.
+Next: verify the image and explicit migration against a disposable PostgreSQL 17 database, then design
+repository mapping and deterministic risk/execution contracts before introducing paper order simulation.
+
+## Verification recorded in this workspace
+
+`pnpm install`, `pnpm typecheck`, `pnpm lint`, `pnpm test` (22 tests), `pnpm build`, offline migration
+SQL generation, and production-only deploy packaging passed. Compiled startup rejection for missing
+configuration, live mode and unavailable DB also passed without leaking the test password.
+Checks ran on Node 26.7.0; the image targets Node 24 LTS.
+Docker and PostgreSQL binaries were unavailable, so actual image build, real DB connection and migration
+application are **not verified**. No production migration was attempted. See the active execution plan.

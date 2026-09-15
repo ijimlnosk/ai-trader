@@ -1,0 +1,10 @@
+{
+  "extends": "@ai-trader/config/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": [
+    "src"
+  ]
+}

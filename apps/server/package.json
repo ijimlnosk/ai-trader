@@ -1,0 +1,30 @@
+{
+  "name": "server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "drizzle"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tooling.json",
+    "dev": "node --env-file-if-exists=../../.env --watch --experimental-strip-types src/app/server.ts",
+    "start": "node --env-file-if-exists=../../.env dist/app/server.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=../../.env dist/infrastructure/database/migrate.js"
+  },
+  "dependencies": {
+    "@ai-trader/contracts": "workspace:*",
+    "fastify": "5.12.4",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.23.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@ai-trader/config": "workspace:*",
+    "@types/pg": "^8.15.5",
+    "drizzle-kit": "0.31.10"
+  }
+}
