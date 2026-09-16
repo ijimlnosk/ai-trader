@@ -3,7 +3,7 @@ import {
   type RiskContext, type RiskDecision, type RiskPolicy, type TradeProposal,
 } from '../domain/risk/index.ts';
 
-/** Provider must supply complete trusted state; never derive buying power from deposit cash. */
+/** Supplies validated context; paper v1 initialization semantics are owned by its provider. */
 export interface RiskContextProvider {
   getRiskContext(): Promise<RiskContext | null>;
 }

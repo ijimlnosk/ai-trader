@@ -1,12 +1,12 @@
 import { createDatabase } from '../infrastructure/database/index.ts';
-import { createApp } from './createApp.ts';
+import { createRuntimeApp } from './createRuntimeApp.ts';
 import { parseEnvironment } from './environment.ts';
 
 async function start() {
   const environment = parseEnvironment(process.env);
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   const database = createDatabase(environment.DATABASE_URL);
-  const app = createApp(environment, database);
+  const app = createRuntimeApp(environment, database);
   app.addHook('onClose', () => database.close());
   let stopping = false;
   const shutdown = async () => {

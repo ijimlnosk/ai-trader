@@ -1,6 +1,7 @@
 # 0003 — Risk v1 requires trusted context and cannot authorize execution
 
-Status: accepted.
+Status: partially superseded by [0004](0004-paper-risk-context.md) for paper cash and initial-state wiring.
+Exact arithmetic, fail-closed failures and no-execution boundaries remain accepted.
 
 ## Context
 

@@ -11,7 +11,7 @@ export interface TradeProposal {
 }
 
 export interface RiskContext {
-  /** Available buying power in KRW, NOT Portfolio.cash (deposit balance). */
+  /** KRW cash budget; paper v1 uses deposit cash, not verified order buying power. */
   cash: string;
   totalEquity: string;
   /** Realized KRW P/L for the current Asia/Seoul trading day. */

@@ -2,7 +2,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { expect, it, vi } from 'vitest';
 import { createKisBroker, KIS_PAPER_URL } from './index.ts';
 import type { KisFetch } from './kisClient.ts';
-import { createApp } from '../../../app/createApp.ts';
+import { createRuntimeApp } from '../../../app/createRuntimeApp.ts';
 import { parseEnvironment } from '../../../app/environment.ts';
 import { BrokerError, type BrokerErrorCode } from '../../../application/brokerError.ts';
 
@@ -104,7 +104,7 @@ it('shares token issuance for concurrent quote and portfolio requests', async ()
   });
   // Exercise real composition too: both routes use the same session by default.
   vi.stubGlobal('fetch', fetcher);
-  const app = createApp(environment, database, false);
+  const app = createRuntimeApp(environment, database, false);
   try {
     const responses = await Promise.all([app.inject('/api/v1/portfolio'), app.inject('/api/v1/market/005930/quote')]);
     expect(responses.map((response) => response.statusCode)).toEqual([200, 200]);
@@ -139,7 +139,7 @@ it.each(['missing cursor', 'unknown header', 'missing header', 'loop', 'changed 
 it('returns only internal fields and omits account/secret data from success response and logs', async () => {
   const { broker } = setup({ ...page, CANO: config.accountNo, appsecret: config.appSecret, output1: [{ ...position, access_token: token.access_token }], output2: [{ ...summary, account: config.accountNo }] });
   const logs: string[] = [];
-  const app = createApp(environment, database, { write: (chunk) => { logs.push(chunk); } }, broker, broker);
+  const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } }, broker, broker);
   try {
     const response = await app.inject('/api/v1/portfolio');
     expect(response.statusCode).toBe(200);
@@ -152,7 +152,7 @@ it.each<[BrokerErrorCode, number]>([
   ['configuration_error', 503], ['authentication_error', 502], ['provider_unavailable', 503],
   ['provider_invalid_response', 502], ['account_unavailable', 503],
 ])('maps API error %s to %s', async (code, status) => {
-  const app = createApp(environment, database, false, undefined, { getPortfolio: async () => { throw new BrokerError(code); } });
+  const app = createRuntimeApp(environment, database, false, undefined, { getPortfolio: async () => { throw new BrokerError(code); } });
   try {
     const response = await app.inject('/api/v1/portfolio');
     expect(response.statusCode).toBe(status);
@@ -163,7 +163,7 @@ it('omits provider failure payloads and request headers from error response/logs
   const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token)).mockRejectedValue(new Error(`${config.accountNo} ${config.appSecret} ${token.access_token}`));
   const broker = createKisBroker(config, fetcher);
   const logs: string[] = [];
-  const app = createApp(environment, database, { write: (chunk) => { logs.push(chunk); } }, broker, broker);
+  const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } }, broker, broker);
   try {
     const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: token.access_token, appsecret: config.appSecret } });
     expect(response.statusCode).toBe(503);

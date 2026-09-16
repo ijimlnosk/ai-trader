@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { createApp } from './createApp.ts';
+import { createRuntimeApp } from './createRuntimeApp.ts';
 import { parseEnvironment } from './environment.ts';
 import { createKisBroker } from '../infrastructure/broker/kis/index.ts';
 import { KIS_PAPER_URL, type KisFetch } from '../infrastructure/broker/kis/kisClient.ts';
@@ -15,7 +15,7 @@ function setup() {
     String(url).endsWith('/oauth2/tokenP')
       ? json({ access_token: secrets[2], token_type: 'Bearer', expires_in: 3600 }) : json(quote));
   const broker = createKisBroker({ baseUrl: KIS_PAPER_URL, appKey: secrets[0], appSecret: secrets[1] }, fetcher);
-  return { fetcher, app: createApp(environment, database, false, broker) };
+  return { fetcher, app: createRuntimeApp(environment, database, false, broker) };
 }
 it('serves quote and probes actual provider for each status while reusing token', async () => {
   const { app, fetcher } = setup();
@@ -44,7 +44,7 @@ it.each(['abc', '5930', '005930xxx', '1234567', '１２３４５６', '005930\n'
   } finally { await app.close(); }
 });
 it('reports missing credentials and fails quote as configuration error', async () => {
-  const app = createApp(parseEnvironment({ DATABASE_URL: 'postgresql://test:test@localhost/test' }), database, false);
+  const app = createRuntimeApp(parseEnvironment({ DATABASE_URL: 'postgresql://test:test@localhost/test' }), database, false);
   try {
     expect((await app.inject('/api/v1/broker/status')).json()).toEqual({ provider: 'kis', mode: 'paper', configured: false, reachable: false, error: 'configuration_error' });
     const response = await app.inject('/api/v1/market/005930/quote');
@@ -56,7 +56,7 @@ it.each<[BrokerErrorCode, number]>([
   ['configuration_error', 503], ['authentication_error', 502],
   ['provider_unavailable', 503], ['provider_invalid_response', 502],
 ])('maps %s to HTTP %s and status failure', async (code, httpStatus) => {
-  const app = createApp(environment, database, false, { isConfigured: () => true, getQuote: async () => { throw new BrokerError(code); } });
+  const app = createRuntimeApp(environment, database, false, { isConfigured: () => true, getQuote: async () => { throw new BrokerError(code); } });
   try {
     const response = await app.inject('/api/v1/market/005930/quote');
     expect(response.statusCode).toBe(httpStatus);
@@ -66,7 +66,7 @@ it.each<[BrokerErrorCode, number]>([
 });
 it('never logs or responds with raw unexpected errors or sensitive request headers', async () => {
   const logged: string[] = [];
-  const app = createApp(environment, database, { write: (chunk) => { logged.push(chunk); } }, {
+  const app = createRuntimeApp(environment, database, { write: (chunk) => { logged.push(chunk); } }, {
     isConfigured: () => true, getQuote: async () => { throw new Error(secrets.join(' ')); },
   });
   try {

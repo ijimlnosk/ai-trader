@@ -34,7 +34,8 @@ An existing database must remain under its existing Compose project/service/netw
 
 ## KIS paper market data
 
-`app/createApp.ts` composes `application/market.ts` with `infrastructure/broker/kis`.
+`app/server.ts` calls `createRuntimeApp`, which creates the KIS adapter and injects application ports
+and a paper portfolio RiskContextProvider into `createApp`. `createApp` registers application use cases.
 The application owns MarketBroker and safe BrokerError contracts; domain Quote has no provider fields.
 HTTP routes depend on application use cases; shared QuoteResponse/BrokerStatusResponse describe the API.
 The existing database `/health` remains independent of KIS availability.
@@ -68,7 +69,7 @@ The KIS adapter exposes no buy/sell/order/cancel/amend, execution, risk or AI me
 ## KIS paper account portfolio
 
 `GET /api/v1/portfolio` → application `createPortfolioQuery` → AccountBroker → KIS portfolio adapter.
-`createApp` constructs one `createKisBroker`; its quote and portfolio methods share `kisSession`
+`createRuntimeApp` constructs one `createKisBroker`; quote, portfolio and risk reads share `kisSession`
 and the unchanged token provider. HTTP routes share a sanitized broker error handler, with no
 infrastructure imports. Public PortfolioResponse/PositionResponse mirror the domain read models.
 The transport exposes body and continuation metadata only inside infrastructure.
@@ -128,16 +129,30 @@ fees, slippage or concurrent reservations yet. These are required before any exe
 `application/risk` orchestrates an injected RiskContextProvider and clock. Its evaluation record
 captures proposal, full versioned policy, copied context, decision/reasons and evaluation timestamp;
 no DB persistence is added. Provider failures propagate to a sanitized HTTP 503, never approval.
-The provider must supply available buying power, current total equity, today's realized P/L in
-Asia/Seoul, position count, consecutive losses and operational kill-switch state from trusted sources.
-Existing Portfolio.cash is deposit balance, not buying power; portfolio valuation P/L is not realized
-P/L. They are deliberately not substituted. No extra Portfolio model is introduced.
+The production paper provider is `application/paperRiskContext.ts`, built against AccountBroker.
+Each evaluation reads the portfolio and maps cash → cash, totalEvaluation → totalEquity and
+positions.length → openPositionCount. Existing Portfolio.cash remains deposit balance, not verified
+buying power; paper v1 explicitly uses it as the risk cash proxy. No extra Portfolio model is introduced.
+`PAPER_RISK_V1_INITIAL_STATE` explicitly supplies dailyRealizedPnl='0', consecutiveLosses=0 and
+killSwitchEnabled=false. These are paper v1 initialization assumptions on every evaluation, not
+observed loss history or a persisted operational switch. Valuation P/L is never used as realized P/L.
+See decision 0004, which supersedes the null-provider/deposit-cash restriction in decision 0003.
+
+The provider validates risk-consumed portfolio fields at runtime: nonnegative cash, positive equity,
+an array of active positions with valid six-digit symbols and positive quantities, without duplicate
+symbols. Financial values use the domain's exact bounded decimal parser. Malformed input returns null
+and the use case rejects with INVALID_CONTEXT. KIS adapter validation still validates the full upstream
+response. Adapter/provider exceptions propagate to the sanitized HTTP 503 response. No cached or
+initial account balance replaces missing data. There is no context cache or persistence.
 
 `POST /api/v1/risk/evaluate` accepts only symbol, BUY/SELL side, quantity, estimatedPrice and confidence
 as strings. The server stamps createdAt. Clients cannot supply context or change policy. Invalid
 HTTP shape is 400; semantic proposal rejection is a RiskDecision with 200 when context is available.
 Responses contain only the decision and use Cache-Control: no-store. The route calls the application
-use case and performs no risk calculations or broker calls. In the default app, no authoritative
-context source exists yet: the provider returns null and all evaluations return 200 with
-`approved: false, approvedQuantity: '0', reasons: ['INVALID_CONTEXT']`, for either side.
-A testable provider can be supplied at composition; no permissive fixture state is used in deployment.
+use case and performs no risk calculations or broker calls. Production follows
+`server.ts → createRuntimeApp → createApp → application risk evaluation → paper portfolio provider
+→ AccountBroker/KIS portfolio → RiskContext → RiskEngine`. `createApp` requires explicit dependencies,
+including RiskContextProvider; missing providers fail at construction rather than becoming null.
+Tests can explicitly inject an unavailable provider, but production has no null-provider default.
+Paper v1 initialization is not sufficient for future order execution: authoritative buying power,
+daily realized P/L, loss streak and operational kill-switch state must be connected before that work.
