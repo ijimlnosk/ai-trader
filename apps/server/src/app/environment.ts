@@ -18,6 +18,13 @@ const schema = z.object({
   KIS_ACCOUNT_PRODUCT_CODE: optionalSecret,
   BROKER_MODE: z.enum(['paper', 'live']).default('paper'),
   LIVE_TRADING_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  PAPER_ORDER_EXECUTION_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  ORDER_API_TOKEN: optionalSecret,
+  TRADING_KILL_SWITCH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+}).superRefine((value, ctx) => {
+  if (value.PAPER_ORDER_EXECUTION_ENABLED && (!value.ORDER_API_TOKEN || value.ORDER_API_TOKEN.length < 32)) {
+    ctx.addIssue({ code: 'custom', path: ['ORDER_API_TOKEN'], message: 'At least 32 characters required for execution' });
+  }
 });
 
 export function parseEnvironment(input: Record<string, unknown>) {

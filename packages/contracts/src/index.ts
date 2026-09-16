@@ -49,3 +49,4 @@ export interface PortfolioResponse {
 }
 
 export { RiskRejection, type RiskRejectionReason, type RiskDecision, type RiskEvaluateRequest } from './risk.js';
+export type { CreateOrderRequest, ExecutionStatus, OrderResponse } from './orders.js';

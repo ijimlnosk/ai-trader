@@ -1,6 +1,13 @@
 # AI Trader backend foundation
 
-Fastify / TypeScript / PostgreSQL 17 / Drizzle. Paper mode only; read-only KIS token, domestic quotes and account portfolio. No order execution or AI.
+Fastify / TypeScript / PostgreSQL 17 / Drizzle. KIS paper quotes/portfolio, deterministic Risk Engine,
+and opt-in human paper MARKET orders. No live trading, strategy or AI.
+
+See [paper order deployment and verification](docs/PAPER_ORDERS.md) before enabling execution.
+
+Paper-order v1 validation (2026-09-16): typecheck, lint, build and 335 tests passed with a disposable
+PostgreSQL 17 database, including migration replay. Docker deployment and an actual KIS paper fill
+have not been verified in this workspace. Execution defaults to disabled.
 
 ## Prerequisites
 
@@ -23,7 +30,8 @@ pnpm --filter server start
 curl --fail http://127.0.0.1:3000/health
 ```
 
-Use `pnpm --filter server dev` for watch mode. Tests use injected database ports and need no PostgreSQL.
+Use `pnpm --filter server dev` for watch mode. Default tests use injected ports; optional order repository
+tests require a separate disposable PostgreSQL database (see the paper order runbook).
 A real PostgreSQL 17 instance must be provisioned separately for local start/migration.
 `.env` is ignored; scripts load the root `.env`. Exported environment variables take precedence.
 Do not publish credentials or paste rendered Compose configuration containing secrets.
@@ -38,6 +46,9 @@ Do not publish credentials or paste rendered Compose configuration containing se
 | DATABASE_URL | required PostgreSQL URL; Docker host `db:5432`, local host depends on local setup |
 | BROKER_MODE | paper (default) / live; live startup is rejected in this version |
 | LIVE_TRADING_ENABLED | exact true / false, defaults false; alone never enables live |
+| PAPER_ORDER_EXECUTION_ENABLED | exact true / false, defaults false; explicitly enables human paper submission |
+| ORDER_API_TOKEN | secret of at least 32 characters required when execution is enabled; bearer auth for all order routes |
+| TRADING_KILL_SWITCH_ENABLED | exact true / false, defaults false; blocks new BUY through execution risk, allows valid SELL |
 | POSTGRES_DB | Compose default ai_trader |
 | POSTGRES_USER | Compose default ai_trader |
 | POSTGRES_PASSWORD | required for Compose; no committed value |
@@ -104,13 +115,12 @@ Database failure returns HTTP 503 with `status=error`, `database=disconnected`, 
 
 ## Schema and next boundary
 
-See [architecture](docs/ARCHITECTURE.md). Four tables: trade_proposals, orders, positions,
+See [architecture](docs/ARCHITECTURE.md). Tables: trade_proposals, orders, order_fills, positions,
 portfolio_snapshots. Money/price/quantity use numeric(24,8) as strings, currency is explicit,
-timestamps are timestamptz. No financial calculations are implemented.
-Next: verify the image and explicit migration against a disposable PostgreSQL 17 database, then design
-repository mapping and deterministic risk/execution contracts before introducing paper order simulation.
+timestamps are timestamptz. Risk uses exact fixed-scale BigInt arithmetic. Orders retain a full risk
+audit and durable idempotency states. Migration 0001 is required before paper order execution.
 
-## Verification recorded in this workspace
+## Initial foundation verification (historical)
 
 `pnpm install`, `pnpm typecheck`, `pnpm lint`, `pnpm test` (22 tests), `pnpm build`, offline migration
 SQL generation, and production-only deploy packaging passed. Compiled startup rejection for missing
@@ -127,7 +137,8 @@ Keep `BROKER_MODE=paper` and `LIVE_TRADING_ENABLED=false`.
 `KIS_ACCOUNT_NO` (8 digits) and `KIS_ACCOUNT_PRODUCT_CODE` (2 digits) are required for portfolio queries.
 `configured` means that the app key and secret are present; account fields are not required for quotes.
 
-Deploy into the existing Compose project (no database migration is needed for this change):
+For the historical quote-only change no migration was needed. Current paper-order deployments must
+first follow the migration steps in [the order runbook](docs/PAPER_ORDERS.md). Read-only checks:
 
 ```bash
 docker compose -p <existing-project> config --quiet
@@ -149,7 +160,7 @@ Quote response fields: `symbol`, `price` (KRW), `change` (KRW), `changeRate` (pe
 `volume` (cumulative shares), `timestamp` (UTC receipt time, not the exchange's last-trade time).
 All financial values remain strings. Provider data is validated by Zod; raw fields/messages are not exposed.
 Invalid symbols return 400; configuration/provider unavailability 503; authentication/invalid response 502.
-These APIs do not implement orders, strategies, AI analysis or a Risk Engine.
+These read endpoints never execute orders. The separate authenticated order endpoint always runs Risk Engine.
 
 Official references: [token request](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/auth/auth_token/auth_token.py),
 [domestic quote request](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_price/inquire_price.py),
@@ -191,7 +202,8 @@ Absent/empty account summary returns `account_unavailable` (503); malformed fiel
 `provider_invalid_response` (502). Other provider/authentication errors retain the quote API categories.
 Responses set `Cache-Control: no-store`; provider payloads/account credentials are not logged or returned.
 
-Deploy using the existing `.env` and Compose project; no migration is needed:
+For the historical portfolio-only change no migration was needed. For the current version, follow
+the order migration runbook before restarting the server. Portfolio checks use the existing project:
 
 ```bash
 docker compose -p <existing-project> config --quiet

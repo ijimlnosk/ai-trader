@@ -2,6 +2,8 @@
 
 Status: accepted. Supersedes decision 0003's default-null provider and prohibition on using
 deposit cash for the paper v1 evaluation context.
+The future paper-execution prerequisites below are superseded by [decision 0005](0005-paper-order-execution-v1.md)
+for the explicitly limited human-operated paper checkpoint; debug evaluation semantics remain unchanged.
 
 ## Context
 

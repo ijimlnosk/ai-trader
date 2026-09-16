@@ -6,12 +6,15 @@ import { createKisSession } from './kisSession.ts';
 import { createKisPortfolioAdapter } from './kisPortfolioAdapter.ts';
 import { parseKis, quoteSchema } from './kisSchemas.ts';
 import type { KisDiagnosticSink } from './kisDiagnostics.ts';
+import type { OrderBroker } from '../../../application/orders/ports.ts';
+import { createKisOrderAdapter } from './kisOrderAdapter.ts';
 
-export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now, diagnostic?: KisDiagnosticSink): MarketBroker & AccountBroker {
+export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now, diagnostic?: KisDiagnosticSink): MarketBroker & AccountBroker & OrderBroker {
   const session = createKisSession(config, fetcher, now, diagnostic);
   return {
     isConfigured: session.isConfigured,
     ...createKisPortfolioAdapter(config, session),
+    ...createKisOrderAdapter(config, session),
     async getQuote(symbol) {
       if (symbol.length !== 6 || !/^[0-9]{6}$/.test(symbol)) throw new BrokerError('invalid_symbol');
       const query = new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol });

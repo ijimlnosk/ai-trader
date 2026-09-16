@@ -9,10 +9,12 @@ import { createHealthCheck, type DatabaseHealth } from '../application/health.ts
 import { PaperBroker } from '../infrastructure/broker/paper/index.ts';
 import { registerHealthRoute } from '../interfaces/http/health.ts';
 import type { Environment } from './environment.ts';
+import type { OrderServices } from '../application/orders/index.ts';
+import { registerOrderRoutes } from '../interfaces/http/orders.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
-  dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider },
+  dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -33,5 +35,6 @@ export function createApp(
   registerMarketRoutes(app, createMarket(dependencies.marketBroker));
   registerPortfolioRoute(app, createPortfolioQuery(dependencies.accountBroker));
   registerRiskRoute(app, createRiskEvaluation(dependencies.riskContextProvider));
+  registerOrderRoutes(app, dependencies.orders, environment.ORDER_API_TOKEN);
   return app;
 }
