@@ -2,10 +2,24 @@ import type { KisConfiguration } from './kisClient.ts';
 
 export interface KisDiagnostic {
   provider: 'kis';
-  operation: 'inquire_balance';
+  operation: 'inquire_balance' | 'inquire_price' | 'unknown';
+  transactionId: 'VTTC8434R' | 'FHKST01010100' | 'UNRECOGNIZED';
+  httpStatus: number;
   msgCode: string;
 }
 export type KisDiagnosticSink = (event: KisDiagnostic) => void;
+
+/** Never log arbitrary URLs, query strings or caller-supplied transaction identifiers. */
+export function kisOperationContext(path: string, transactionId: string): Pick<KisDiagnostic, 'operation' | 'transactionId'> {
+  const endpoint = path.split('?')[0];
+  if (endpoint === '/uapi/domestic-stock/v1/trading/inquire-balance' && transactionId === 'VTTC8434R') {
+    return { operation: 'inquire_balance', transactionId: 'VTTC8434R' };
+  }
+  if (endpoint === '/uapi/domestic-stock/v1/quotations/inquire-price' && transactionId === 'FHKST01010100') {
+    return { operation: 'inquire_price', transactionId: 'FHKST01010100' };
+  }
+  return { operation: 'unknown', transactionId: 'UNRECOGNIZED' };
+}
 
 /** Only bounded code-shaped identifiers may enter logs; never forward the provider envelope. */
 export function safeKisMessageCode(value: string | undefined, config: KisConfiguration, token: string): string {

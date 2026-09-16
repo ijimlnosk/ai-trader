@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { safeKisMessageCode } from './kisDiagnostics.ts';
+import { kisOperationContext, safeKisMessageCode } from './kisDiagnostics.ts';
 import { KIS_PAPER_URL } from './index.ts';
 
 const config = { baseUrl: KIS_PAPER_URL, appKey: 'fixture-key', appSecret: 'fixture-secret', accountNo: '12345678' };
@@ -14,4 +14,9 @@ it.each(['appKey', 'appSecret', 'accountNo'] as const)('redacts a credential eve
 });
 it('redacts a token even when it resembles a code', () => {
   expect(safeKisMessageCode('EGW00123', config, 'EGW00123')).toBe('REDACTED');
+});
+it('does not log arbitrary operation paths, query strings or transaction IDs', () => {
+  expect(kisOperationContext('/secret?CANO=12345678', 'fixture-secret')).toEqual({ operation: 'unknown', transactionId: 'UNRECOGNIZED' });
+  expect(kisOperationContext('/uapi/domestic-stock/v1/trading/inquire-balance?CANO=12345678', 'fixture-secret'))
+    .toEqual({ operation: 'unknown', transactionId: 'UNRECOGNIZED' });
 });

@@ -116,12 +116,18 @@ The current function demonstrates INQR_DVSN=01 and documents 01/02; the requeste
 preference selects the legacy sample's 00. No automatic parameter retries are attempted. Duplicate
 symbols still fail closed rather than silently dropping or double-counting rows.
 
-For a non-zero balance rt_cd, kisSession emits an injected diagnostic containing only provider=kis,
-operation=inquire_balance and msgCode. Runtime composition sends it to the structured warning logger.
+For a non-zero rt_cd, kisSession emits an injected diagnostic containing provider=kis, operation,
+transactionId, httpStatus and msgCode. Runtime composition sends it to the structured warning logger.
+Balance uses inquire_balance/VTTC8434R; quotes use inquire_price/FHKST01010100. Operation/transaction
+identifiers come from a fixed endpoint/TR pair allowlist; unknown pairs become unknown/UNRECOGNIZED,
+never arbitrary paths or query strings. The transport observes parsed bodies before HTTP error mapping,
+so valid non-zero KIS envelopes on 4xx/5xx are also diagnosed. Non-JSON/empty error responses retain
+their status-based generic errors and produce no invented message code. Token issuance does not use
+this session response observer. Authentication handling and automatic retry behavior are unchanged.
 Only eight-character KIS-shaped codes (3 letters/5 digits or 4 letters/4 digits) pass; missing or
 malformed codes become UNRECOGNIZED. Codes containing configured credentials/account number or the
-current access token become REDACTED. The provider body, msg1, URL/query, account identifiers and
-credentials never enter this event. HTTP error contracts remain generic; auth failures still invalidate
+current access token become REDACTED. The provider body, msg1, URL/query, account identifiers,
+DATABASE_URL, request headers and credentials never enter this event. HTTP error contracts remain generic; auth failures still invalidate
 the token, and risk evaluation remains fail closed. Diagnostics do not establish that 00 resolves the
 reported production failure until the next actual provider response is observed.
 

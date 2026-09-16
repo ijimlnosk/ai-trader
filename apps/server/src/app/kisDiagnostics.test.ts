@@ -35,7 +35,8 @@ it.each([
     const diagnostics = logs.flatMap((chunk) => chunk.trim().split('\n')).filter((line) => line.includes('"provider":"kis"'));
     expect(diagnostics).toHaveLength(2);
     for (const line of diagnostics) {
-      expect(JSON.parse(line)).toMatchObject({ provider: 'kis', operation: 'inquire_balance', msgCode: expectedCode });
+      expect(JSON.parse(line)).toMatchObject({ provider: 'kis', operation: 'inquire_balance',
+        transactionId: 'VTTC8434R', httpStatus: 200, msgCode: expectedCode });
     }
     for (const secret of secrets) expect(logs.join('') + portfolio.body + risk.body).not.toContain(secret);
     expect(logs.join('')).not.toContain('msg1');
