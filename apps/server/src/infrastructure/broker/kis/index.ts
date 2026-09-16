@@ -5,9 +5,10 @@ import type { KisConfiguration, KisFetch } from './kisClient.ts';
 import { createKisSession } from './kisSession.ts';
 import { createKisPortfolioAdapter } from './kisPortfolioAdapter.ts';
 import { parseKis, quoteSchema } from './kisSchemas.ts';
+import type { KisDiagnosticSink } from './kisDiagnostics.ts';
 
-export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now): MarketBroker & AccountBroker {
-  const session = createKisSession(config, fetcher, now);
+export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now, diagnostic?: KisDiagnosticSink): MarketBroker & AccountBroker {
+  const session = createKisSession(config, fetcher, now, diagnostic);
   return {
     isConfigured: session.isConfigured,
     ...createKisPortfolioAdapter(config, session),

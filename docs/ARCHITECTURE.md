@@ -74,7 +74,9 @@ and the unchanged token provider. HTTP routes share a sanitized broker error han
 infrastructure imports. Public PortfolioResponse/PositionResponse mirror the domain read models.
 The transport exposes body and continuation metadata only inside infrastructure.
 
-KIS uses paper transaction VTTC8434R and symbol-level INQR_DVSN=02. Account configuration is validated
+KIS uses paper transaction VTTC8434R and all-balance INQR_DVSN=00, matching the official legacy
+balance sample's all-balance option. Current official examples also document 02 as symbol-level;
+its previous use alone does not establish the cause of an upstream failure. Account configuration is validated
 as 8-digit CANO and 2-digit ACNT_PRDT_CD on use; missing accounts do not break existing quote/status.
 Zod validates all required financial strings, row fields and account summary before mapping.
 No DB read/write, migration, balance caching or order authorization is introduced.
@@ -94,6 +96,34 @@ No partial portfolio is returned after any failure. Missing/empty summary is acc
 invalid fields are provider_invalid_response (502). Existing configuration/auth/provider error mapping
 is reused. Unknown KIS business errors remain provider_unavailable; no raw message is exposed.
 Portfolio HTTP responses use Cache-Control: no-store. Account values never appear in logs.
+
+Verified balance query parameters (official sources checked 2026-09-16):
+
+| Field | Value |
+| --- | --- |
+| Endpoint | GET /uapi/domestic-stock/v1/trading/inquire-balance |
+| Paper TR ID | VTTC8434R |
+| CANO / ACNT_PRDT_CD | Configured 8-digit account / 2-digit product code |
+| AFHR_FLPR_YN / OFL_YN | N / empty string |
+| INQR_DVSN / UNPR_DVSN | 00 / 01 |
+| FUND_STTL_ICLD_YN / FNCG_AMT_AUTO_RDPT_YN | N / N |
+| PRCS_DVSN | 00 |
+| CTX_AREA_FK100 / CTX_AREA_NK100 | Empty initially, returned cursors for continuation |
+
+Sources: [official legacy all-balance sample](https://github.com/koreainvestment/open-trading-api/blob/main/legacy/Sample01/kis_domstk.py)
+and [current official balance function, including demo TR ID](https://github.com/koreainvestment/open-trading-api/blob/main/examples_llm/domestic_stock/inquire_balance/inquire_balance.py).
+The current function demonstrates INQR_DVSN=01 and documents 01/02; the requested all-balance
+preference selects the legacy sample's 00. No automatic parameter retries are attempted. Duplicate
+symbols still fail closed rather than silently dropping or double-counting rows.
+
+For a non-zero balance rt_cd, kisSession emits an injected diagnostic containing only provider=kis,
+operation=inquire_balance and msgCode. Runtime composition sends it to the structured warning logger.
+Only eight-character KIS-shaped codes (3 letters/5 digits or 4 letters/4 digits) pass; missing or
+malformed codes become UNRECOGNIZED. Codes containing configured credentials/account number or the
+current access token become REDACTED. The provider body, msg1, URL/query, account identifiers and
+credentials never enter this event. HTTP error contracts remain generic; auth failures still invalidate
+the token, and risk evaluation remains fail closed. Diagnostics do not establish that 00 resolves the
+reported production failure until the next actual provider response is observed.
 
 ## Deterministic Risk Engine v1
 

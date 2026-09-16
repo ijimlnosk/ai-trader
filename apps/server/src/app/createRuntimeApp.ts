@@ -19,11 +19,13 @@ export function createRuntimeApp(
     appSecret: environment.KIS_APP_SECRET,
     accountNo: environment.KIS_ACCOUNT_NO,
     accountProductCode: environment.KIS_ACCOUNT_PRODUCT_CODE,
-  });
+  }, undefined, Date.now, (event) => app.log.warn(event, 'KIS balance request rejected'));
   const account = accountBroker ?? broker;
-  return createApp(environment, database, {
+  // Diagnostics run only on requests, after app construction has completed.
+  const app = createApp(environment, database, {
     marketBroker: marketBroker ?? broker,
     accountBroker: account,
     riskContextProvider: createPaperPortfolioRiskContextProvider(account),
   }, logger);
+  return app;
 }

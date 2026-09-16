@@ -24,7 +24,8 @@ export function createKisPortfolioAdapter(config: KisConfiguration, session: Kis
         if (page > 0) await delay(1000);
         const query = new URLSearchParams({
           CANO: account.data.accountNo, ACNT_PRDT_CD: account.data.accountProductCode,
-          AFHR_FLPR_YN: 'N', OFL_YN: '', INQR_DVSN: '02', UNPR_DVSN: '01',
+          // Official legacy/Sample01/kis_domstk.py uses 00 for all balances (02 is symbol-level).
+          AFHR_FLPR_YN: 'N', OFL_YN: '', INQR_DVSN: '00', UNPR_DVSN: '01',
           FUND_STTL_ICLD_YN: 'N', FNCG_AMT_AUTO_RDPT_YN: 'N', PRCS_DVSN: '00',
           CTX_AREA_FK100: fk, CTX_AREA_NK100: nk,
         });

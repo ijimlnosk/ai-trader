@@ -40,7 +40,7 @@ it('uses the paper balance endpoint and exact account/query parameters', async (
   const parsed = new URL(String(url));
   expect(parsed.origin).toBe(KIS_PAPER_URL);
   expect(parsed.pathname).toBe('/uapi/domestic-stock/v1/trading/inquire-balance');
-  expect(Object.fromEntries(parsed.searchParams)).toEqual({ CANO: config.accountNo, ACNT_PRDT_CD: '01', AFHR_FLPR_YN: 'N', OFL_YN: '', INQR_DVSN: '02', UNPR_DVSN: '01', FUND_STTL_ICLD_YN: 'N', FNCG_AMT_AUTO_RDPT_YN: 'N', PRCS_DVSN: '00', CTX_AREA_FK100: '', CTX_AREA_NK100: '' });
+  expect(Object.fromEntries(parsed.searchParams)).toEqual({ CANO: config.accountNo, ACNT_PRDT_CD: '01', AFHR_FLPR_YN: 'N', OFL_YN: '', INQR_DVSN: '00', UNPR_DVSN: '01', FUND_STTL_ICLD_YN: 'N', FNCG_AMT_AUTO_RDPT_YN: 'N', PRCS_DVSN: '00', CTX_AREA_FK100: '', CTX_AREA_NK100: '' });
   expect(init).toMatchObject({ method: 'GET', redirect: 'error', headers: { tr_id: 'VTTC8434R', tr_cont: '', authorization: 'Bearer fixture-token' } });
 });
 it('follows F/M pages with N, preserves cursors and never sums repeated summaries', async () => {
