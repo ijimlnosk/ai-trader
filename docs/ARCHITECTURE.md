@@ -8,7 +8,7 @@ Quote and Portfolio are provider-independent domain read models; database record
 
 Public shared API contracts live in `@ai-trader/contracts`. Shared strict compiler configuration
 lives in `@ai-trader/config`. Package exports prevent imports of package implementation paths.
-ESLint restricts outward dependencies from domain/application. No execution, AI, risk engine or order HTTP endpoint exists.
+ESLint restricts outward dependencies from domain/application. No execution, AI or order HTTP endpoint exists. Deterministic risk evaluation is described below.
 Read-only KIS authentication, domestic quote and portfolio integration is implemented below.
 
 Startup checks the database before listening. Runtime health rechecks connectivity with bounded
@@ -63,7 +63,7 @@ It does not merely infer reachability from a locally cached token. Unconfigured 
 Quote errors distinguish invalid_symbol (400), configuration_error (503), authentication_error (502),
 provider_unavailable (503), provider_invalid_response (502). Unexpected errors are sanitized to 500.
 An upstream authentication failure is 502 rather than implying the API caller's authentication failed.
-No buy/sell/order/cancel/amend, execution, risk or AI methods are introduced.
+The KIS adapter exposes no buy/sell/order/cancel/amend, execution, risk or AI methods.
 
 ## KIS paper account portfolio
 
@@ -93,3 +93,51 @@ No partial portfolio is returned after any failure. Missing/empty summary is acc
 invalid fields are provider_invalid_response (502). Existing configuration/auth/provider error mapping
 is reused. Unknown KIS business errors remain provider_unavailable; no raw message is exposed.
 Portfolio HTTP responses use Cache-Control: no-store. Account values never appear in logs.
+
+## Deterministic Risk Engine v1
+
+**No order may bypass Risk Engine.** The required future path is
+`TradeProposal → RiskEngine → RiskDecision → Execution → Broker`.
+There is still no execution engine or broker order method. Risk approval alone is not authorization
+for future execution; no funds or positions are reserved by evaluation.
+
+`domain/risk` owns pure `evaluateRisk(proposal, context, policy)`, proposal/context models, validation
+and an immutable default policy (`version: v1`). Public RiskDecision, rejection reasons and HTTP
+request contracts live in `@ai-trader/contracts`. Domain has no DB, HTTP, KIS, Fastify or AI calls.
+Amounts are KRW, quantity is shares, rates/confidence are 0–1 ratios. Decimal input is bounded to
+numeric(24,8): 16 integral digits and up to 8 fractional digits. BigInt fixed-scale products and
+cross multiplication preserve exact comparisons, including products with 16 fractional places.
+Scientific notation, whitespace, nonfinite values and excess precision are rejected, never rounded.
+Proposal timestamps use canonical UTC ISO strings with milliseconds. No current clock is read in domain.
+
+BUY defaults: confidence >= 0.70; proposed order notional <= 10% of total equity and <= available
+cash; fewer than 5 open positions; daily realized P/L strictly greater than -2% of equity;
+fewer than 3 consecutive losses; kill switch disabled. All relevant failures are collected in stable
+order, including other failures when kill switch is enabled. Invalid proposal/context/policy return
+INVALID_PROPOSAL/INVALID_CONTEXT/INVALID_POLICY and cannot approve. Positive equity, nonnegative
+available cash and safe nonnegative integer counters are required. Malformed values prevent only
+checks dependent on those values, not independent validation or kill-switch rejection.
+
+V1 exposure is incremental order notional, not aggregate existing symbol exposure. Every BUY is
+conservatively treated as a new symbol at the position cap; no additional-purchase exception exists.
+SELL skips all BUY controls (including confidence threshold and kill switch), but still requires
+valid proposal, context and policy. SELL approval does NOT verify holdings, available sell quantity,
+whole-share lots or absence of short selling. Neither side validates freshness, market sessions,
+fees, slippage or concurrent reservations yet. These are required before any execution is connected.
+
+`application/risk` orchestrates an injected RiskContextProvider and clock. Its evaluation record
+captures proposal, full versioned policy, copied context, decision/reasons and evaluation timestamp;
+no DB persistence is added. Provider failures propagate to a sanitized HTTP 503, never approval.
+The provider must supply available buying power, current total equity, today's realized P/L in
+Asia/Seoul, position count, consecutive losses and operational kill-switch state from trusted sources.
+Existing Portfolio.cash is deposit balance, not buying power; portfolio valuation P/L is not realized
+P/L. They are deliberately not substituted. No extra Portfolio model is introduced.
+
+`POST /api/v1/risk/evaluate` accepts only symbol, BUY/SELL side, quantity, estimatedPrice and confidence
+as strings. The server stamps createdAt. Clients cannot supply context or change policy. Invalid
+HTTP shape is 400; semantic proposal rejection is a RiskDecision with 200 when context is available.
+Responses contain only the decision and use Cache-Control: no-store. The route calls the application
+use case and performs no risk calculations or broker calls. In the default app, no authoritative
+context source exists yet: the provider returns null and all evaluations return 200 with
+`approved: false, approvedQuantity: '0', reasons: ['INVALID_CONTEXT']`, for either side.
+A testable provider can be supplied at composition; no permissive fixture state is used in deployment.

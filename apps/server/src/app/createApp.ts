@@ -1,3 +1,5 @@
+import { createRiskEvaluation, type RiskContextProvider } from '../application/risk.ts';
+import { registerRiskRoute } from '../interfaces/http/risk.ts';
 import Fastify from 'fastify';
 import { createPortfolioQuery, type AccountBroker } from '../application/portfolio.ts';
 import { registerPortfolioRoute } from '../interfaces/http/portfolio.ts';
@@ -13,6 +15,7 @@ export function createApp(
   environment: Environment, database: DatabaseHealth,
   logger: boolean | { write(chunk: string): void } = true,
   marketBroker?: MarketBroker, accountBroker?: AccountBroker,
+  riskContextProvider: RiskContextProvider = { getRiskContext: async () => null },
 ) {
   if (environment.BROKER_MODE !== 'paper') {
     throw new Error('Live broker is not implemented; BROKER_MODE must be paper');
@@ -35,5 +38,6 @@ export function createApp(
   });
   registerMarketRoutes(app, createMarket(marketBroker ?? broker));
   registerPortfolioRoute(app, createPortfolioQuery(accountBroker ?? broker));
+  registerRiskRoute(app, createRiskEvaluation(riskContextProvider));
   return app;
 }

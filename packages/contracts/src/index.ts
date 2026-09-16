@@ -47,3 +47,5 @@ export interface PortfolioResponse {
   totalProfitLossRate: string;
   positions: PositionResponse[];
 }
+
+export { RiskRejection, type RiskRejectionReason, type RiskDecision, type RiskEvaluateRequest } from './risk.js';
