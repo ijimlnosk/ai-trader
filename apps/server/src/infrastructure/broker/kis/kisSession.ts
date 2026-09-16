@@ -25,6 +25,10 @@ export function createKisSession(config: KisConfiguration, fetcher?: KisFetch, n
             diagnostic?.({ provider: 'kis', ...kisOperationContext(path, transactionId), httpStatus,
               msgCode: safeKisMessageCode(result.data.msg_cd, config, token) });
           }
+        }, (kind) => {
+          // No HTTP response was received; httpStatus 0 distinguishes this from a provider-returned status.
+          diagnostic?.({ provider: 'kis', ...kisOperationContext(path, transactionId), httpStatus: 0,
+            msgCode: kind === 'timeout' ? 'TIMEOUT' : 'NETWORK_ERROR' });
         });
         const envelope = parseKis(envelopeSchema, response.body);
         if (envelope.rt_cd !== '0') {

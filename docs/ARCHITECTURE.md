@@ -124,6 +124,11 @@ never arbitrary paths or query strings. The transport observes parsed bodies bef
 so valid non-zero KIS envelopes on 4xx/5xx are also diagnosed. Non-JSON/empty error responses retain
 their status-based generic errors and produce no invented message code. Token issuance does not use
 this session response observer. Authentication handling and automatic retry behavior are unchanged.
+
+A request that never receives an HTTP response (the 10-second `AbortSignal.timeout` firing, DNS
+failure, connection refused) also emits a diagnostic: httpStatus 0 with msgCode TIMEOUT or
+NETWORK_ERROR, distinguished by the abort reason's DOMException name. This lets operators tell a
+transport-level failure apart from a provider-returned rejection using only the structured log.
 Only eight-character KIS-shaped codes (3 letters/5 digits or 4 letters/4 digits) pass; missing or
 malformed codes become UNRECOGNIZED. Codes containing configured credentials/account number or the
 current access token become REDACTED. The provider body, msg1, URL/query, account identifiers,

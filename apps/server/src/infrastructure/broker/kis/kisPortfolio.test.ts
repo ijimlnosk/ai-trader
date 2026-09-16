@@ -171,6 +171,25 @@ it('omits provider failure payloads and request headers from error response/logs
     expect(logs.join('')).toContain('portfolio_request_failed');
   } finally { await app.close(); }
 });
+it.each([
+  ['generic transport failure', new Error(`${config.accountNo} ${config.appSecret}`), 'NETWORK_ERROR'],
+  ['AbortSignal.timeout firing', new DOMException(`${config.accountNo} ${config.appSecret}`, 'TimeoutError'), 'TIMEOUT'],
+] as const)('diagnoses a %s distinctly from a provider-returned rejection', async (_label, rejection, msgCode) => {
+  const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token)).mockRejectedValue(rejection);
+  vi.stubGlobal('fetch', fetcher);
+  const logs: string[] = [];
+  const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } });
+  try {
+    const response = await app.inject('/api/v1/portfolio');
+    expect(response.statusCode).toBe(503);
+    for (const secret of [config.accountNo, config.appSecret]) expect(response.body + logs.join('')).not.toContain(secret);
+    const diagnostics = logs.flatMap((chunk) => chunk.trim().split('\n')).filter((line) => line.includes('"provider":"kis"'));
+    expect(diagnostics).toHaveLength(1);
+    expect(JSON.parse(diagnostics[0]!)).toMatchObject({
+      provider: 'kis', operation: 'inquire_balance', transactionId: 'VTTC8434R', httpStatus: 0, msgCode,
+    });
+  } finally { await app.close(); vi.unstubAllGlobals(); }
+});
 
 it('allows an empty search-condition cursor when the next-page cursor advances', async () => {
   const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token))

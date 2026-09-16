@@ -15,6 +15,7 @@ export function createKisClient(config: KisConfiguration, fetcher: KisFetch = fe
   async function requestWithMetadata(
     path: string, init: RequestInit, authentication = false,
     observeResponse?: (body: unknown, httpStatus: number) => void,
+    observeFailure?: (kind: 'timeout' | 'network_error') => void,
   ) {
     if (!isConfigured()) throw new BrokerError('configuration_error');
     let response: Response;
@@ -22,7 +23,9 @@ export function createKisClient(config: KisConfiguration, fetcher: KisFetch = fe
       response = await fetcher(`${config.baseUrl}${path}`, {
         ...init, redirect: 'error', signal: AbortSignal.timeout(10_000),
       });
-    } catch {
+    } catch (error) {
+      // AbortSignal.timeout aborts with a DOMException named TimeoutError; anything else is a transport failure.
+      observeFailure?.(error instanceof Error && error.name === 'TimeoutError' ? 'timeout' : 'network_error');
       throw new BrokerError('provider_unavailable');
     }
     let body: unknown;
