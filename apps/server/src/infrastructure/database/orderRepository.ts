@@ -3,7 +3,9 @@ import { OrderError, type OrderPatch, type OrderRepository } from '../../applica
 import { sameOrderInput } from '../../application/orders/input.ts';
 import type { StoredOrder } from '../../domain/orders.ts';
 import type { createDatabase } from './index.ts';
-import { orders, tradeProposals, positions, orderFills } from './schema.ts';
+import { orders, tradeProposals, positions, orderFills, executions } from './schema.ts';
+import { executionDelta, validTradeDate } from '../../domain/tradeLedger.ts';
+import { readTradeLedger } from './tradeLedgerReader.ts';
 import { mapStoredOrder } from './orderMapping.ts';
 
 type Database = ReturnType<typeof createDatabase>['db'];
@@ -20,6 +22,7 @@ export function createOrderRepository(db: Database, executionAccount: string): O
   });
   const match = (order: StoredOrder) => and(scope, eq(orders.id, order.id), eq(orders.version, order.version));
   return {
+    getTradeLedger: (day) => readTradeLedger(db, executionAccount, day),
     async reserve(key, request) {
       const replay = (row: typeof orders.$inferSelect) => {
         if (!sameOrderInput(row.requestPayload, request)) throw new OrderError('idempotency_conflict');
@@ -64,6 +67,13 @@ export function createOrderRepository(db: Database, executionAccount: string): O
       return db.transaction(async (tx) => {
         const [row] = await tx.update(orders).set(patchValues(order, patch)).where(match(order)).returning();
         if (!row) throw new OrderError('order_conflict');
+        const delta = executionDelta(order.filledQuantity, order.filledAmount, row.filledQuantity, row.filledAmount);
+        if (delta) {
+          if (!row.brokerOrderDate || !validTradeDate(row.brokerOrderDate) || !row.brokerOrderId) throw new OrderError('invalid_reconciliation');
+          await tx.insert(executions).values({ orderId: order.id, executionAccount, symbol: order.symbol,
+            side: order.side, tradeDate: row.brokerOrderDate, ...delta,
+            cumulativeQuantity: row.filledQuantity, cumulativeAmount: row.filledAmount });
+        }
         await tx.insert(orderFills).values({ orderId: order.id, filledQuantity: row.filledQuantity,
           filledAmount: row.filledAmount, brokerStatus: row.brokerStatus! }).onConflictDoNothing();
         const timestamp = new Date();

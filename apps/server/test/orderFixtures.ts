@@ -1,3 +1,4 @@
+import { calculateTradeLedger, executionDelta, type LedgerExecution } from '../src/domain/tradeLedger.ts';
 import { randomUUID } from 'node:crypto';
 import { vi } from 'vitest';
 import { OrderError, type OrderRepository } from '../src/application/orders/ports.ts';
@@ -16,7 +17,9 @@ export const portfolio: Portfolio = { cash: '10000000', totalEvaluation: '100000
 export function memoryOrders() {
   const rows = new Map<string, StoredOrder>();
   const snapshots: unknown[] = [];
+  const executions: LedgerExecution[] = [];
   const repository: OrderRepository = {
+    async getTradeLedger(day) { return calculateTradeLedger(executions, day); },
     async reserve(key, request) {
       const existing = [...rows.values()].find((row) => row.idempotencyKey === key);
       if (existing) {
@@ -41,11 +44,14 @@ export function memoryOrders() {
     },
     async reconcile(order, patch, portfolio) {
       const updated = await repository.update(order, patch);
+      const delta = executionDelta(order.filledQuantity, order.filledAmount, updated.filledQuantity, updated.filledAmount);
+      if (delta) executions.push({ orderId: order.id, symbol: order.symbol, side: order.side,
+        tradeDate: updated.brokerOrderDate!, ...delta });
       snapshots.push(structuredClone(portfolio));
       return updated;
     },
   };
-  return { repository, rows, snapshots };
+  return { repository, rows, snapshots, executions };
 }
 export function setupOrders() {
   const memory = memoryOrders();

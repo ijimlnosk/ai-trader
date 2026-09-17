@@ -28,9 +28,8 @@ export function createOrderExecution(deps: ExecutionDependencies) {
     try {
       if (!isPaperOrderSession(now())) return await fail('market_session_closed');
       const portfolio = await deps.account.getPortfolio();
-      const context = await createPaperPortfolioRiskContextProvider({ getPortfolio: async () => portfolio }).getRiskContext();
+      const context = await createPaperPortfolioRiskContextProvider({ getPortfolio: async () => portfolio }, deps.repository, deps.killSwitchEnabled, now).getRiskContext();
       if (!context) return await fail('invalid_context');
-      context.killSwitchEnabled = deps.killSwitchEnabled;
       const quote = await deps.market.getQuote(request.symbol);
       const fresh = () => {
         const age = now().getTime() - Date.parse(quote.timestamp);

@@ -84,6 +84,7 @@ it.each(['0', 'NaN'])('invalid/insufficient buying quantity %s never sends', asy
 it('SELL requires sellable holdings; a valid liquidation can pass the BUY kill switch', async () => {
   const s = setupOrders(); const execute = createOrderExecution(s.deps);
   expect((await execute(randomUUID(), { ...input, side: 'SELL' })).failureCode).toBe('insufficient_sellable_quantity');
+  s.executions.push({ orderId: 'opening-buy', symbol: input.symbol, side: 'BUY', tradeDate: '20260915', quantity: '1', amount: '70000' });
   s.account.getPortfolio.mockResolvedValue({ ...portfolio, positions: [position] }); s.deps.killSwitchEnabled = true;
   expect((await execute(randomUUID(), { ...input, side: 'SELL' })).brokerStatus).toBe('SUBMITTED');
   expect(s.broker.getBuyingPower).not.toHaveBeenCalled();

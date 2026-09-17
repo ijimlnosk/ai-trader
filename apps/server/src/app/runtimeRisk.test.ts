@@ -1,3 +1,4 @@
+import { memoryOrders } from '../../test/orderFixtures.ts';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createRuntimeApp } from './createRuntimeApp.ts';
 import { parseEnvironment } from './environment.ts';
@@ -24,7 +25,7 @@ it('production composition uses the real KIS adapter/provider and shares its tok
   });
   vi.stubGlobal('fetch', fetcher);
   // This is the exact composition function used by server.ts, with no provider/broker override.
-  const app = createRuntimeApp(environment, database, false);
+  const app = createRuntimeApp(environment, database, false, undefined, undefined, memoryOrders().repository);
   try {
     const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.statusCode).toBe(200);
@@ -49,7 +50,7 @@ it.each([
   const fetcher = vi.fn<typeof fetch>().mockResolvedValueOnce(json({ access_token: 'fixture-token', token_type: 'Bearer', expires_in: 3600 }))
     .mockResolvedValueOnce(json(body));
   vi.stubGlobal('fetch', fetcher);
-  const app = createRuntimeApp(environment, database, false);
+  const app = createRuntimeApp(environment, database, false, undefined, undefined, memoryOrders().repository);
   try {
     const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.statusCode).toBe(503);
@@ -64,11 +65,39 @@ it.each([
     { approved: false, approvedQuantity: '0', reasons: ['MAX_PORTFOLIO_POSITIONS_EXCEEDED'] }],
 ])('production provider maps an injected account port through the engine %j', async (value, expected) => {
   const getPortfolio = vi.fn().mockResolvedValue(value);
-  const app = createRuntimeApp(environment, database, false, undefined, { getPortfolio });
+  const app = createRuntimeApp(environment, database, false, undefined, { getPortfolio }, {
+    ...memoryOrders().repository,
+    getTradeLedger: async () => ({ dailyRealizedPnl: '0', consecutiveLosses: 0,
+      positions: (value.positions ?? []).map((p) => ({ ...p, costAmount: '70000' })) }),
+  });
   try {
     const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(expected);
     expect(getPortfolio).toHaveBeenCalledTimes(1);
+  } finally { await app.close(); }
+});
+
+it('production risk wiring uses persistent history and environment kill switch', async () => {
+  const repo = memoryOrders().repository;
+  repo.getTradeLedger = async () => ({ dailyRealizedPnl: '-200000', consecutiveLosses: 3, positions: [] });
+  const account = { getPortfolio: vi.fn().mockResolvedValue(portfolio) };
+  const app = createRuntimeApp({ ...environment, TRADING_KILL_SWITCH_ENABLED: true }, database, false, undefined, account, repo);
+  try {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    expect(response.json()).toMatchObject({ approved: false, reasons: expect.arrayContaining([
+      'DAILY_LOSS_LIMIT_EXCEEDED', 'CONSECUTIVE_LOSS_LIMIT_EXCEEDED', 'KILL_SWITCH_ENABLED',
+    ]) });
+    repo.getTradeLedger = async () => { throw new Error('fixture-private-ledger-secret'); };
+    const failed = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    expect(failed.statusCode).toBe(503);
+    expect(failed.body).not.toContain('fixture-private-ledger-secret');
+  } finally { await app.close(); }
+});
+it('production risk cannot approve without a ledger repository even if execution is disabled', async () => {
+  const app = createRuntimeApp(environment, database, false, undefined, { getPortfolio: vi.fn().mockResolvedValue(portfolio) });
+  try {
+    const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    expect(response.json()).toMatchObject({ approved: false, reasons: ['INVALID_CONTEXT'] });
   } finally { await app.close(); }
 });

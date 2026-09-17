@@ -62,3 +62,31 @@ it('queries an accepted paper order and maps cumulative fills', async () => {
   expect(new URL(String(url)).searchParams.get('ODNO')).toBe('12345');
   expect(init).toMatchObject({ headers: { tr_id: 'VTTC0081R' } });
 });
+
+const cumulativeRow = { odno: '12345', ord_dt: '20260916', pdno: '005930', sll_buy_dvsn_cd: '02', ord_dvsn_cd: '01',
+  ord_qty: '2', tot_ccld_qty: '0', tot_ccld_amt: '0', cncl_yn: 'N', rjct_qty: '0' };
+it.each([
+  [{}, 'SUBMITTED'],
+  [{ tot_ccld_qty: '1', tot_ccld_amt: '70000' }, 'PARTIALLY_FILLED'],
+  [{ tot_ccld_qty: '2', tot_ccld_amt: '140000' }, 'FILLED'],
+  [{ tot_ccld_qty: '1', tot_ccld_amt: '70000', cncl_yn: 'Y' }, 'CANCELLED'],
+  [{ rjct_qty: '2' }, 'BROKER_REJECTED'],
+])('maps cumulative paper state %j to %s without sending orders', async (patch, status) => {
+  const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token))
+    .mockResolvedValueOnce(json({ rt_cd: '0', output1: [{ ...cumulativeRow, ...patch }] }));
+  const { order } = await memoryOrders().repository.reserve('key', input); order.brokerOrderDate = '20260916';
+  expect(await createKisBroker(config, fetcher).getOrderFill(order, '12345')).toMatchObject({ status });
+  expect(fetcher.mock.calls.slice(1).every(([, init]) => init?.method === 'GET')).toBe(true);
+});
+it('does not guess an order when the confirmed id is absent', async () => {
+  const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token))
+    .mockResolvedValueOnce(json({ rt_cd: '0', output1: [{ ...cumulativeRow, odno: '999' }] }));
+  const { order } = await memoryOrders().repository.reserve('key', input); order.brokerOrderDate = '20260916';
+  expect(await createKisBroker(config, fetcher).getOrderFill(order, '12345')).toBeNull();
+});
+it('does not return a found fill before continuation validation is complete', async () => {
+  const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token))
+    .mockResolvedValueOnce(json({ rt_cd: '0', output1: [cumulativeRow] }, 'F'));
+  const { order } = await memoryOrders().repository.reserve('key', input); order.brokerOrderDate = '20260916';
+  await expect(createKisBroker(config, fetcher).getOrderFill(order, '12345')).rejects.toMatchObject({ code: 'provider_invalid_response' });
+});

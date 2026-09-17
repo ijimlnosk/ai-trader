@@ -1,7 +1,8 @@
 import { parseRiskDecimal } from '../../domain/risk/index.ts';
 import type { AccountBroker } from '../portfolio.ts';
-import { createPaperPortfolioRiskContextProvider } from '../paperRiskContext.ts';
+import { riskPortfolioSchema } from '../paperRiskContext.ts';
 import { OrderError, type OrderBroker, type OrderRepository } from './ports.ts';
+import { executionDelta } from '../../domain/tradeLedger.ts';
 import { validAmount } from './input.ts';
 
 export function createOrderReconciliation(repository: OrderRepository, broker: OrderBroker, account: AccountBroker, now = () => new Date()) {
@@ -28,8 +29,13 @@ export function createOrderReconciliation(repository: OrderRepository, broker: O
       || (fillQuantity > 0n && parseRiskDecimal(fill.filledAmount) === 0n)
       || (['SUBMITTED', 'BROKER_REJECTED'].includes(fill.status) && fillQuantity > 0n)
       || (['FILLED', 'CANCELLED'].includes(order.brokerStatus) && fill.status !== order.brokerStatus)) throw new OrderError('invalid_reconciliation');
+    try { executionDelta(order.filledQuantity, order.filledAmount, fill.filledQuantity, fill.filledAmount); }
+    catch { throw new OrderError('invalid_reconciliation'); }
+    if (fill.status === 'PARTIALLY_FILLED' && (fillQuantity === 0n || fillQuantity === parseRiskDecimal(order.quantity))) {
+      throw new OrderError('invalid_reconciliation');
+    }
     const portfolio = await account.getPortfolio();
-    if (!await createPaperPortfolioRiskContextProvider({ getPortfolio: async () => portfolio }).getRiskContext()) throw new OrderError('order_context_unavailable');
+    if (!riskPortfolioSchema.safeParse(portfolio).success) throw new OrderError('order_context_unavailable');
     const before = parseRiskDecimal(order.audit.positionQuantityBefore)!;
     const filled = parseRiskDecimal(fill.filledQuantity)!;
     const expected = order.side === 'BUY' ? before + filled : before - filled;

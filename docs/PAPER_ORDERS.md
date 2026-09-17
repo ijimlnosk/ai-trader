@@ -1,8 +1,8 @@
-# Paper order v1 runbook
+# Paper execution and Trade Ledger v1 runbook
 
 Only human-operated KIS paper MARKET orders are implemented. No AI, strategy, live orders, automatic
-resubmission, cancel/amend API or realized P/L ledger. The initial daily realized P/L and loss streak
-remain 0; these risk checks do not yet reflect account losses. Policy thresholds are unchanged.
+resubmission or cancel/amend API. Confirmed execution history now supplies gross daily realized P/L
+and consecutive losses to risk. Fees/taxes are excluded; policy thresholds are unchanged.
 
 ## Configuration
 
@@ -23,7 +23,7 @@ Environment switches take effect after server recreation and do not cancel broke
 
 ## Deploy to the existing Compose project
 
-The migration is required. Use the same `.env`, project, DB service/network and external volume.
+All migrations, including 0002 executions/backfill, are required. Use the same `.env`, project, DB service/network and external volume.
 Take a DB backup with the existing operations procedure first. Stop competing order writers. Do not
 recreate the database or use `down -v`. Replace the project placeholder with its existing name:
 
@@ -36,7 +36,7 @@ curl --fail http://127.0.0.1:3200/health
 curl --fail http://127.0.0.1:3200/api/v1/portfolio
 ```
 
-Keep execution disabled until health/portfolio succeed. Set PAPER_ORDER_EXECUTION_ENABLED=true in
+Keep execution disabled until health/portfolio succeed and ledger coverage is verified as below. Set PAPER_ORDER_EXECUTION_ENABLED=true in
 the existing private environment and repeat `up -d --no-deps server`. Keep the API loopback/private;
 use an SSH tunnel or authenticated TLS ingress. Do not print rendered Compose secrets.
 
@@ -107,7 +107,49 @@ Database tests require an **empty disposable local PostgreSQL 17 database**, not
 ORDER_TEST_DATABASE_URL=postgresql://<local-test-user>@127.0.0.1:<port>/ai_trader_order_test_<unique-suffix> pnpm test
 ```
 
-The test runs both migrations and checks legacy preservation, concurrent idempotency, account gating,
-optimistic updates, deduplicated fill snapshots and transaction rollback. Each run needs a new empty
+The test runs all three migrations and checks legacy preservation, concurrent idempotency, account gating,
+optimistic updates, deduplicated executions, historical backfill, ledger completeness, P/L,
+account isolation, restart recovery and transaction rollback. Each run needs a new empty
 DB. Default tests skip this suite when the explicit test URL is absent. Actual deployment, broker
 acceptance and account holdings must be verified separately using the checkpoint above.
+
+
+## Ledger verification and coverage
+
+Migration 0002 imports already-confirmed cumulative fills from existing account-scoped orders,
+including a previous successful BUY. An accepted order with filledQuantity=0 must still be reconciled;
+order acceptance is never an acquisition cost. Reconcile outstanding orders before the next submission.
+Repeated identical queries must not add executions; partial queries add only the positive difference.
+A FILLED result whose broker balance has not caught up remains blocking until synchronization succeeds.
+
+Inspect `executions` using the existing private DB administration connection. For each order, the sum
+of quantity/amount must equal the order's filled_quantity/filled_amount. Each row includes the source
+(reconciliation or legacy_order_backfill), order/account scope, side, date and cumulative watermark.
+Account identifiers remain hashes. Order `risk_audit.context` stores the actual daily P/L, loss streak
+and operational switch consumed by that order's decision. The broker position mirror is a valuation
+snapshot; its legacy realized_pnl column is not authoritative. Realized P/L is derived from executions.
+
+Before enabling execution, call the existing debug risk endpoint with a normal proposal and check for
+INVALID_CONTEXT or risk_context_unavailable. Those require investigation, not altered risk limits.
+Compare broker holdings with ledger BUY minus SELL quantities and ensure each sale has preceding
+acquisition cost. A valid account with no trade history and no holdings starts at zero. Untracked
+holdings fail closed for BUY and SELL; there is no automatic import of arbitrary external trades,
+manual opening-balance override, or estimated cost seeded from current price/portfolio average.
+If history is incomplete, keep execution disabled and reconstruct verified historical records through
+a reviewed data repair. Do not delete filled orders or insert fabricated zero-cost acquisitions.
+
+For a completed BUY/SELL round trip, ledger gross P/L is confirmed sell amount less allocated buy cost.
+Partial disposal uses moving-average acquisition cost; residual precision remains with unsold shares.
+Daily realized P/L uses the Seoul trading date, not the reconciliation request date. A next-day
+reconciliation therefore does not move yesterday's result into today's loss limit. Three consecutive
+net losing SELL orders stop new BUY under the unchanged policy; breakeven/profitable SELL resets the
+streak, BUY does not, and midnight resets only daily P/L. Partial executions of one SELL count once.
+
+KIS cumulative amounts omit fee/tax accounting in this implementation. Gross P/L can differ from
+broker net results; automated/live operation is not authorized by this phase. Kill switch is read from
+TRADING_KILL_SWITCH_ENABLED on server startup for both risk evaluation and execution. Keep an exclusive
+paper account: same-quantity external round trips and corporate actions cannot be inferred here.
+
+Rollback keeps executions and historical fill snapshots intact and disables order execution first.
+Do not enable orders on the older binary with placeholder risk history. No down migration deletes
+financial history. Deployment and actual KIS fill/holdings verification are separate from local tests.

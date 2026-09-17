@@ -1,4 +1,5 @@
 import type { CreateOrderRequest, StoredOrder, OrderRequest, BrokerFill } from '../../domain/orders.ts';
+import type { TradeLedger } from '../../domain/tradeLedger.ts';
 import type { Portfolio } from '../../domain/portfolio.ts';
 
 export interface OrderBroker {
@@ -13,11 +14,12 @@ export class BrokerOrderRejected extends Error {
   constructor() { super('Broker rejected paper order'); this.name = 'BrokerOrderRejected'; }
 }
 export interface OrderRepository {
+  getTradeLedger(tradeDate: string): Promise<TradeLedger>;
   /** Atomically replay or reserve a new key; only one unresolved order may exist per account. */
   reserve(key: string, request: CreateOrderRequest): Promise<{ order: StoredOrder; created: boolean }>;
   get(id: string): Promise<StoredOrder | null>;
   update(order: StoredOrder, patch: OrderPatch): Promise<StoredOrder>;
-  /** Optimistic update + cumulative fill history + broker position mirror in one transaction. */
+  /** Optimistic update + execution deltas + cumulative history + position mirror in one transaction. */
   reconcile(order: StoredOrder, patch: OrderPatch, portfolio: Portfolio): Promise<StoredOrder>;
 }
 export class OrderError extends Error {

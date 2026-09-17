@@ -11,7 +11,7 @@ function setup() {
   const s = setupOrders();
   const app = createApp(parseEnvironment({ DATABASE_URL: 'postgresql://test:test@localhost/test', ORDER_API_TOKEN: apiToken, PAPER_ORDER_EXECUTION_ENABLED: 'true' }),
     { checkConnection: async () => {} }, { marketBroker: s.market, accountBroker: s.account,
-      riskContextProvider: createPaperPortfolioRiskContextProvider(s.account), orders: createOrderServices(s.deps) }, false);
+      riskContextProvider: createPaperPortfolioRiskContextProvider(s.account, s.repository), orders: createOrderServices(s.deps) }, false);
   const headers = { authorization: `Bearer ${apiToken}`, 'idempotency-key': randomUUID() };
   return { ...s, app, headers };
 }

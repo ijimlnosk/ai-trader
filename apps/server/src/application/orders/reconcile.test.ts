@@ -46,3 +46,20 @@ it('partial fills stay blocked; terminal replay cannot overwrite a later portfol
   expect((await reconcile(order.id)).brokerStatus).toBe('CANCELLED');
   expect(s.snapshots).toHaveLength(2);
 });
+
+it('rejects same-quantity amount corrections and impossible partial states without changing the ledger', async () => {
+  const s = setupOrders(); const order = await createOrderExecution(s.deps)(randomUUID(), { ...input, quantity: '2' });
+  const fill: BrokerFill = { brokerOrderId: '12345', orderDate: '20260916', symbol: input.symbol, side: 'BUY',
+    quantity: '2', filledQuantity: '1', filledAmount: '70000', status: 'PARTIALLY_FILLED' };
+  s.broker.getOrderFill.mockResolvedValue(fill);
+  s.account.getPortfolio.mockResolvedValue({ ...portfolio, positions: [position] });
+  const reconcile = createOrderReconciliation(s.repository, s.broker, s.account, s.deps.now);
+  await reconcile(order.id);
+  for (const patch of [{ filledAmount: '71000' }, { filledQuantity: '2', filledAmount: '140000' },
+    { filledQuantity: '0', filledAmount: '0' }, { filledQuantity: '1.5', filledAmount: '105000' }]) {
+    s.broker.getOrderFill.mockResolvedValue({ ...fill, ...patch });
+    await expect(reconcile(order.id)).rejects.toMatchObject({ code: 'invalid_reconciliation' });
+  }
+  expect(s.executions).toHaveLength(1);
+  expect((await s.repository.get(order.id))?.filledAmount).toBe('70000');
+});

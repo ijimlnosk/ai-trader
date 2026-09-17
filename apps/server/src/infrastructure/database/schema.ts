@@ -107,3 +107,26 @@ export const portfolioSnapshots = pgTable('portfolio_snapshots', {
   unrealizedPnl: money('unrealized_pnl').notNull(),
   createdAt: instant('created_at').notNull().defaultNow(),
 }, (t) => [check('snapshot_currency_code', sql`${t.currency} ~ '^[A-Z]{3}$'`)]);
+
+/** Immutable observed cumulative deltas; amounts are gross KRW (fees/taxes unavailable). */
+export const executions = pgTable('executions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orderId: uuid('order_id').notNull().references(() => orders.id, { onDelete: 'restrict' }),
+  executionAccount: text('execution_account').notNull(),
+  symbol: text('symbol').notNull(),
+  side: orderSide('side').notNull(),
+  tradeDate: text('trade_date').notNull(),
+  quantity: quantity('quantity').notNull(),
+  amount: money('amount').notNull(),
+  cumulativeQuantity: quantity('cumulative_quantity').notNull(),
+  cumulativeAmount: money('cumulative_amount').notNull(),
+  observedAt: instant('observed_at').notNull().defaultNow(),
+  source: text('source').notNull().default('reconciliation'),
+}, (t) => [
+  uniqueIndex('executions_order_cumulative_idx').on(t.orderId, t.cumulativeQuantity),
+  index('executions_account_date_idx').on(t.executionAccount, t.tradeDate),
+  check('execution_positive', sql`${t.quantity} > 0 AND ${t.amount} > 0 AND ${t.quantity} = trunc(${t.quantity})`),
+  check('execution_cumulative_range', sql`${t.cumulativeQuantity} >= ${t.quantity} AND ${t.cumulativeAmount} >= ${t.amount}`),
+  check('execution_trade_date', sql`${t.tradeDate} ~ '^[0-9]{8}$'`),
+  check('execution_source', sql`${t.source} IN ('reconciliation', 'legacy_order_backfill')`),
+]);

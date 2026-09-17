@@ -29,7 +29,7 @@ export function createRuntimeApp(
   const app = createApp(environment, database, {
     marketBroker: marketBroker ?? broker,
     accountBroker: account,
-    riskContextProvider: createPaperPortfolioRiskContextProvider(account),
+    riskContextProvider: createPaperPortfolioRiskContextProvider(account, orderRepository, environment.TRADING_KILL_SWITCH_ENABLED),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,
   }, logger);
