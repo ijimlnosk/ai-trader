@@ -1,7 +1,7 @@
 # AI Trader backend foundation
 
 Fastify / TypeScript / PostgreSQL 17 / Drizzle. KIS paper quotes/portfolio, deterministic Risk Engine,
-and opt-in human paper MARKET orders. No live trading, strategy or AI.
+opt-in paper MARKET orders, deterministic Strategy v1 and offline daily backtesting. No live trading or AI.
 
 See [paper order deployment and verification](docs/PAPER_ORDERS.md) before enabling execution.
 
@@ -46,7 +46,7 @@ Do not publish credentials or paste rendered Compose configuration containing se
 | DATABASE_URL | required PostgreSQL URL; Docker host `db:5432`, local host depends on local setup |
 | BROKER_MODE | paper (default) / live; live startup is rejected in this version |
 | LIVE_TRADING_ENABLED | exact true / false, defaults false; alone never enables live |
-| PAPER_ORDER_EXECUTION_ENABLED | exact true / false, defaults false; explicitly enables human paper submission |
+| PAPER_ORDER_EXECUTION_ENABLED | exact true / false, defaults false; explicitly enables manual and strategy paper submission |
 | ORDER_API_TOKEN | secret of at least 32 characters required when execution is enabled; bearer auth for all order routes |
 | TRADING_KILL_SWITCH_ENABLED | exact true / false, defaults false; blocks new BUY through execution risk, allows valid SELL |
 | POSTGRES_DB | Compose default ai_trader |
@@ -220,3 +220,16 @@ Official references: [balance request and pagination](https://github.com/koreain
 Portfolio validation: `pnpm typecheck`, `pnpm lint`, `pnpm test` (117 tests) and `pnpm build`
 passed. No actual account query or deployment was performed during implementation. See
 [completed portfolio plan and changed-file list](docs/exec-plans/completed/kis-portfolio.md).
+
+## Strategy v1 and backtesting
+
+Run without credentials, network or a database:
+
+```bash
+pnpm --silent --filter server backtest --sample > /tmp/strategy-report.json
+pnpm --silent --filter server backtest --file /path/to/daily-data.json /path/to/settings.json
+```
+
+The synthetic sample exercises screening → EMA/RSI/ATR signals → proposals → existing risk →
+next-session simulated fills → net ledger and performance. It is not actual market performance.
+See [strategy rules, data format, API and limitations](docs/STRATEGY.md).

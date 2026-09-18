@@ -8,8 +8,8 @@ Quote and Portfolio are provider-independent domain read models; database record
 
 Public shared API contracts live in `@ai-trader/contracts`. Shared strict compiler configuration
 lives in `@ai-trader/config`. Package exports prevent imports of package implementation paths.
-ESLint restricts outward dependencies from domain/application. Human-initiated paper execution is
-opt-in; AI and strategies remain unimplemented. Read APIs, deterministic risk and execution are described below.
+ESLint restricts outward dependencies from domain/application. Manual and strategy paper execution are
+opt-in; deterministic daily Strategy v1 and offline backtesting are implemented. AI remains unimplemented. Read APIs, deterministic risk and execution are described below.
 
 Startup checks the database before listening. Runtime health rechecks connectivity with bounded
 connection/query timeouts and returns 503 on failure. Logs omit raw environment and driver errors.
@@ -290,3 +290,44 @@ orders and order_fills, does not invent historical exchange fills, and requires 
 Invalid/incomplete history remains detectable by the reader. Historical sales with missing BUY basis
 require investigated history repair; deployment must not reset history to admit orders.
 See [Execution & Trade Ledger decision](decisions/0006-execution-trade-ledger-v1.md) and the runbook.
+
+## Deterministic Strategy v1 and daily backtesting
+
+`domain/strategy` owns validated regular-session OHLCV, EMA20/60, Wilder RSI14/ATR14, volume ratio,
+explicit-universe liquidity screening, signal conditions and ATR/allocation sizing. No clock, network,
+DB or broker enters this domain. Financial sizing uses the existing fixed-scale decimal functions;
+indicators use bounded finite JS numbers. Shared candle/dataset/request and order provenance types
+live in `@ai-trader/contracts`. Existing TradeProposal and Risk Engine contracts are reused unchanged.
+
+`POST /api/v1/strategy/evaluate` is registered inside the existing bearer-protected order route scope.
+It accepts complete historical daily data and optionally one executeSymbol. Application orchestration
+reads the paper portfolio and ledger-backed RiskContext, evaluates each symbol lexically, and returns
+signals plus risk audits. Evaluation alone cannot submit. An explicit selected approved signal enters
+`OrderServices.submit`, which re-fetches quotes, holdings and buying power and evaluates risk again.
+Execution remains disabled by default. No timer, AI path or historical KIS fetch is added.
+The endpoint requires the order repository/service and token even for read-only evaluation.
+
+A SHA-256-derived UUIDv8 identity binds strategy ID/version, symbol and completed bar, deliberately
+excluding side, quantity and config to prevent re-evaluation from acquiring a new retry key. Existing
+account-scoped reservation/unknown-state handling remain authoritative. Changed payload under the
+same identity conflicts. Replay after portfolio changes may return no new signal or fail closed;
+original orders remain available through GET /orders/:id. Strategy metadata, selected-symbol candles,
+sizing account, configuration identity and full-input digest persist in existing request_payload JSONB.
+No migration is needed. The proposal reason identifies strategy entries; manual entries retain human_api.
+
+`application/backtest` uses the same indicators, screener, strategy, risk and ledger projector with
+isolated in-memory state. A close signal becomes a pending proposal; next-session open marks and
+slippage determine the fresh execution risk context. Exact costs enter BUY basis and SELL proceeds
+in the simulation ledger. Production KIS ledger remains gross because its fee/tax inputs are unavailable.
+All filled simulated orders must have an approved risk decision and sufficient cash/holdings.
+Full inputs, settings, close evaluations, execution audits and equity history are emitted as JSON.
+Only report ratios and indicators use floating point. Final signals are left unfilled and open holdings
+marked to the final close; no invented terminal liquidation occurs.
+
+Input session calendars are explicit and must match all universe histories; no missing bars are
+interpolated. This cannot detect omissions in an incorrectly supplied calendar. Paper evaluation
+rejects future or older-than-four-day closes. Submission additionally requires the next calendar
+weekday, conservatively rejecting signals carried across weekday holidays. Dataset close is modeled
+at 15:30 Seoul and open at 09:00; special sessions are unsupported. The existing execution layer still
+checks its own 09:00–15:20 window and quote receipt freshness. See [Strategy runbook](STRATEGY.md) and
+[decision 0007](decisions/0007-deterministic-strategy-backtest.md) for definitions and limitations.

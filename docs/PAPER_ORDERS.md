@@ -1,7 +1,7 @@
 # Paper execution and Trade Ledger v1 runbook
 
-Only human-operated KIS paper MARKET orders are implemented. No AI, strategy, live orders, automatic
-resubmission or cancel/amend API. Confirmed execution history now supplies gross daily realized P/L
+Explicit manual and deterministic-strategy KIS paper MARKET submissions are implemented. No AI, live orders,
+automatic resubmission or cancel/amend API. Strategy evaluation defaults to no submission; see [Strategy v1](STRATEGY.md). Confirmed execution history now supplies gross daily realized P/L
 and consecutive losses to risk. Fees/taxes are excluded; policy thresholds are unchanged.
 
 ## Configuration

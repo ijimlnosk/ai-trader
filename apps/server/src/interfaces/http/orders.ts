@@ -1,3 +1,5 @@
+import type { StrategyService } from '../../application/strategy/index.ts';
+import { strategyInputSchema } from '../../application/strategy/input.ts';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
@@ -5,7 +7,7 @@ import { orderResponse, type OrderServices } from '../../application/orders/inde
 import { orderInputSchema } from '../../application/orders/input.ts';
 import { OrderError } from '../../application/orders/ports.ts';
 
-export function registerOrderRoutes(app: FastifyInstance, services: OrderServices | undefined, apiToken: string | undefined) {
+export function registerOrderRoutes(app: FastifyInstance, services: OrderServices | undefined, apiToken: string | undefined, strategy?: StrategyService) {
   app.register(async (routes) => {
     routes.addHook('onRequest', async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
@@ -23,6 +25,11 @@ export function registerOrderRoutes(app: FastifyInstance, services: OrderService
         : ['idempotency_conflict', 'account_busy', 'order_conflict', 'reconciliation_required', 'invalid_reconciliation'].includes(code) ? 409 : 503;
       request.log.warn({ event: 'order_request_failed', code }, 'Order request failed');
       return reply.code(status).send({ error: { code } });
+    });
+    routes.post('/api/v1/strategy/evaluate', async (request, reply) => {
+      if (!strategy) return reply.code(503).send({ error: { code: 'strategy_unavailable' } });
+      const input = strategyInputSchema.parse(request.body);
+      return strategy(input.data, input.executeSymbol);
     });
     routes.post('/api/v1/orders', async (request, reply) => {
       const key = z.string().uuid().transform((value) => value.toLowerCase()).parse(request.headers['idempotency-key']);

@@ -1,4 +1,6 @@
+import type { StrategyProvenance } from './strategy.js';
 export interface CreateOrderRequest {
+  strategy?: StrategyProvenance | undefined;
   symbol: string;
   side: 'BUY' | 'SELL';
   quantity: string;

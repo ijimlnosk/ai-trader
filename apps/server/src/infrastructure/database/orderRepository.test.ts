@@ -1,10 +1,11 @@
+import { strategySetup } from '../../../test/strategySetup.ts';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql, eq, isNull } from 'drizzle-orm';
 import { createDatabase } from './index.ts';
 import { createOrderRepository } from './orderRepository.ts';
-import { orders, orderFills, positions, executions } from './schema.ts';
+import { orders, orderFills, positions, executions, tradeProposals } from './schema.ts';
 import { input, position, portfolio } from '../../../test/orderFixtures.ts';
 
 // Only an explicitly provisioned disposable DB is permitted; no production DATABASE_URL fallback.
@@ -43,6 +44,21 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     const replay = await createOrderRepository(database.db, scope).reserve(key, input);
     expect(replay.created).toBe(false);
     await expect(repo.reserve(key, { ...input, quantity: '2' })).rejects.toMatchObject({ code: 'idempotency_conflict' });
+  });
+  it('persists strategy inputs and replays JSONB metadata across repository instances', async () => {
+    const scenario = strategySetup();
+    await scenario.evaluate(scenario.data, '005930');
+    const request = [...scenario.rows.values()][0]!.request;
+    const account = randomUUID(); const key = randomUUID();
+    const repo = createOrderRepository(database.db, account);
+    const first = await repo.reserve(key, request);
+    const replay = await createOrderRepository(database.db, account).reserve(key, request);
+    expect(replay.created).toBe(false);
+    expect(replay.order.request).toEqual(request);
+    const [proposal] = await database.db.select().from(tradeProposals).where(eq(tradeProposals.id, first.order.proposalId));
+    expect(proposal?.reason).toBe('ema-cross:1:BULLISH_CROSS');
+    await expect(repo.reserve(key, { ...request, strategy: { ...request.strategy!, source: 'changed' } }))
+      .rejects.toMatchObject({ code: 'idempotency_conflict' });
   });
   it('different keys cannot reserve the same account; different accounts remain independent', async () => {
     const repo = createOrderRepository(database.db, randomUUID());

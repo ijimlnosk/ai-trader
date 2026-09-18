@@ -1,3 +1,4 @@
+import { createStrategyService } from '../application/strategy/index.ts';
 import { createRiskEvaluation, type RiskContextProvider } from '../application/risk.ts';
 import { registerRiskRoute } from '../interfaces/http/risk.ts';
 import Fastify from 'fastify';
@@ -35,6 +36,8 @@ export function createApp(
   registerMarketRoutes(app, createMarket(dependencies.marketBroker));
   registerPortfolioRoute(app, createPortfolioQuery(dependencies.accountBroker));
   registerRiskRoute(app, createRiskEvaluation(dependencies.riskContextProvider));
-  registerOrderRoutes(app, dependencies.orders, environment.ORDER_API_TOKEN);
+  registerOrderRoutes(app, dependencies.orders, environment.ORDER_API_TOKEN, createStrategyService({
+    account: dependencies.accountBroker, risk: dependencies.riskContextProvider, orders: dependencies.orders,
+  }));
   return app;
 }

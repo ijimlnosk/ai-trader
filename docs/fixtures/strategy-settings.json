@@ -1,0 +1,15 @@
+{
+  "initialCash": "10000000",
+  "killSwitchEnabled": false,
+  "costs": { "commissionBps": 15, "sellTaxBps": 20, "slippageBps": 5 },
+  "strategy": {
+    "minPrice": "1000",
+    "minAverageTurnover": "100000000",
+    "minRsi": 50,
+    "maxRsi": 70,
+    "minVolumeRatio": 1.2,
+    "riskBudgetBps": 100,
+    "maxAllocationBps": 900,
+    "atrMultiple": 2
+  }
+}

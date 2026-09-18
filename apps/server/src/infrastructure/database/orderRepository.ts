@@ -33,7 +33,7 @@ export function createOrderRepository(db: Database, executionAccount: string): O
       try {
         return await db.transaction(async (tx) => {
           const [proposal] = await tx.insert(tradeProposals).values({ symbol: request.symbol, side: request.side,
-            score: '0', confidence: request.confidence, reason: 'human_api', risk: 'pending' }).returning();
+            score: '0', confidence: request.confidence, reason: request.strategy ? `${request.strategy.strategyId}:${request.strategy.version}:${request.strategy.reason}` : 'human_api', risk: 'pending' }).returning();
           if (!proposal) throw new Error('Proposal persistence failed');
           const [row] = await tx.insert(orders).values({ proposalId: proposal.id, symbol: request.symbol,
             side: request.side, quantity: request.quantity, currency: 'KRW', executionAccount,
