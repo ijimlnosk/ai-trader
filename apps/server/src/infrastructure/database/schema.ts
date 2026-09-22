@@ -130,3 +130,17 @@ export const executions = pgTable('executions', {
   check('execution_trade_date', sql`${t.tradeDate} ~ '^[0-9]{8}$'`),
   check('execution_source', sql`${t.source} IN ('reconciliation', 'legacy_order_backfill')`),
 ]);
+
+export const strategyRuns = pgTable('strategy_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  runKey: text('run_key').notNull(),
+  executionAccount: text('execution_account').notNull(),
+  sessionDate: text('session_date').notNull(),
+  dataSha256: text('data_sha256').notNull(),
+  result: jsonb('result').notNull(),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('strategy_runs_account_key_idx').on(t.executionAccount, t.runKey),
+  check('strategy_runs_session_date', sql`${t.sessionDate} ~ '^[0-9]{8}$'`),
+  check('strategy_runs_sha256', sql`${t.dataSha256} ~ '^[0-9a-f]{64}$'`),
+]);

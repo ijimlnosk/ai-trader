@@ -36,8 +36,8 @@ Phase 6 confirms the real paper account round trip.
 
 The first dry-run boundary is now `POST /api/v1/strategy/schedule`. It requires a caller-supplied
 session date, uses an injected-clock session check, evaluates strategy and risk without an execution
-symbol, and replays an idempotent run record. The current adapter stores records in process memory;
-a durable audit repository remains before unattended use.
+symbol, and replays an idempotent run record. Production composition persists records in the
+`strategy_runs` PostgreSQL table; tests use an in-memory adapter.
 
 ## Phase 6 gate
 

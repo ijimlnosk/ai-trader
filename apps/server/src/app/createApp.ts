@@ -14,10 +14,11 @@ import type { OrderServices } from '../application/orders/index.ts';
 import { registerOrderRoutes } from '../interfaces/http/orders.ts';
 import { createMemoryStrategyRunRepository, createStrategyScheduler } from '../application/scheduler/index.ts';
 import { registerStrategySchedulerRoute } from '../interfaces/http/strategyScheduler.ts';
+import type { StrategyRunRepository } from '../application/scheduler/index.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
-  dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined },
+  dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -42,6 +43,6 @@ export function createApp(
     account: dependencies.accountBroker, risk: dependencies.riskContextProvider, orders: dependencies.orders,
   });
   registerOrderRoutes(app, dependencies.orders, environment.ORDER_API_TOKEN, strategy);
-  registerStrategySchedulerRoute(app, createStrategyScheduler({ strategy, runs: createMemoryStrategyRunRepository() }), environment.ORDER_API_TOKEN);
+  registerStrategySchedulerRoute(app, createStrategyScheduler({ strategy, runs: dependencies.strategyRuns ?? createMemoryStrategyRunRepository() }), environment.ORDER_API_TOKEN);
   return app;
 }

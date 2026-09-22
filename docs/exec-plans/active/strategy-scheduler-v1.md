@@ -14,7 +14,8 @@ Add a paper-only scheduler boundary that evaluates strategy and risk during an e
 ## Progress
 
 - Added an explicit session calendar and Seoul regular-session window check.
-- Added an application scheduler with an idempotent run repository port and in-memory implementation.
+- Added an application scheduler with an idempotent run repository port, in-memory test implementation, and PostgreSQL implementation.
+- Added the `strategy_runs` table and Drizzle migration; production composition now uses the durable repository.
 - Added a bearer-protected dry-run endpoint at `POST /api/v1/strategy/schedule`.
 - Added session and idempotency tests.
 
@@ -24,5 +25,4 @@ Add a paper-only scheduler boundary that evaluates strategy and risk during an e
 
 ## Remaining
 
-- Replace the in-memory repository with a durable audit store before unattended scheduling.
 - Keep Phase 6 KIS BUY/SELL verification separate; this endpoint must remain order-free.

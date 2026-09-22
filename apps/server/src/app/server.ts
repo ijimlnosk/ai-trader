@@ -3,13 +3,14 @@ import { createRuntimeApp } from './createRuntimeApp.ts';
 import { parseEnvironment } from './environment.ts';
 import { createHash } from 'node:crypto';
 import { createOrderRepository } from '../infrastructure/database/orderRepository.ts';
+import { createStrategyRunRepository } from '../infrastructure/database/strategyRunRepository.ts';
 
 async function start() {
   const environment = parseEnvironment(process.env);
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   const database = createDatabase(environment.DATABASE_URL);
   const executionAccount = createHash('sha256').update(`paper:${environment.KIS_ACCOUNT_NO ?? ''}:${environment.KIS_ACCOUNT_PRODUCT_CODE ?? ''}`).digest('hex');
-  const app = createRuntimeApp(environment, database, true, undefined, undefined, createOrderRepository(database.db, executionAccount));
+  const app = createRuntimeApp(environment, database, true, undefined, undefined, createOrderRepository(database.db, executionAccount), createStrategyRunRepository(database.db, executionAccount));
   app.addHook('onClose', () => database.close());
   let stopping = false;
   const shutdown = async () => {

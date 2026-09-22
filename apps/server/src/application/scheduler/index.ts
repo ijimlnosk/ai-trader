@@ -6,6 +6,7 @@ import { OrderError } from '../orders/ports.ts';
 
 export interface StrategyRunRecord {
   runKey: string;
+  sessionDate: string;
   createdAt: string;
   dataSha256: string;
   result: Awaited<ReturnType<StrategyService>>;
@@ -38,7 +39,7 @@ export function createStrategyScheduler(deps: {
     const now = (deps.now ?? (() => new Date()))();
     if (!isSeoulTradingSession(now, calendar)) throw new OrderError('order_context_unavailable');
     const result = await deps.strategy(data);
-    const record: StrategyRunRecord = { runKey, createdAt: now.toISOString(), dataSha256, result };
+    const record: StrategyRunRecord = { runKey, sessionDate, createdAt: now.toISOString(), dataSha256, result };
     await deps.runs.put(record);
     return record;
   };
