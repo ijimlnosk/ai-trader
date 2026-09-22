@@ -256,6 +256,10 @@ operator-confirmed identity checks and never re-submits an order. Acceptance cre
 Cumulative quantity/amount must increase together; amount-only corrections, regression, fractional
 shares and impossible partial statuses are rejected pending investigation.
 
+The paper-only strategy dry-run endpoint `POST /api/v1/strategy/schedule` is bearer-protected,
+requires an explicit session date, evaluates without an execution symbol, and stores idempotent
+records in process memory. It cannot submit orders and is not an unattended background scheduler.
+
 `domain/tradeLedger.ts` is a pure ordered projection over `LedgerExecution` facts. The PostgreSQL
 repository writes positive quantity/amount differences to `executions` with account, order, side,
 symbol, KRX trade date, cumulative totals and observation time. A unique order/cumulative-quantity

@@ -12,6 +12,8 @@ import { registerHealthRoute } from '../interfaces/http/health.ts';
 import type { Environment } from './environment.ts';
 import type { OrderServices } from '../application/orders/index.ts';
 import { registerOrderRoutes } from '../interfaces/http/orders.ts';
+import { createMemoryStrategyRunRepository, createStrategyScheduler } from '../application/scheduler/index.ts';
+import { registerStrategySchedulerRoute } from '../interfaces/http/strategyScheduler.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -36,8 +38,10 @@ export function createApp(
   registerMarketRoutes(app, createMarket(dependencies.marketBroker));
   registerPortfolioRoute(app, createPortfolioQuery(dependencies.accountBroker));
   registerRiskRoute(app, createRiskEvaluation(dependencies.riskContextProvider));
-  registerOrderRoutes(app, dependencies.orders, environment.ORDER_API_TOKEN, createStrategyService({
+  const strategy = createStrategyService({
     account: dependencies.accountBroker, risk: dependencies.riskContextProvider, orders: dependencies.orders,
-  }));
+  });
+  registerOrderRoutes(app, dependencies.orders, environment.ORDER_API_TOKEN, strategy);
+  registerStrategySchedulerRoute(app, createStrategyScheduler({ strategy, runs: createMemoryStrategyRunRepository() }), environment.ORDER_API_TOKEN);
   return app;
 }

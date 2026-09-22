@@ -8,7 +8,7 @@
 | 2 | Deterministic Strategy Engine v1 | Complete |
 | 3 | Offline next-open backtest engine | Complete |
 | 4 | Strategy → deterministic Risk connection | Complete |
-| 5 | Scheduler and trading-session coordination | Next |
+| 5 | Scheduler and trading-session coordination | In progress (dry-run boundary) |
 | 6 | KIS paper BUY/SELL E2E during an open session | Pending next permitted session |
 | 7 | Strategy → Risk → Execution paper loop | Blocked on Phases 5 and 6 |
 
@@ -33,6 +33,11 @@ The first implementation must not submit orders, enable paper execution, infer h
 missing candles. It needs an injected clock, explicit session calendar, bounded retries for no
 broker writes, run idempotency, and a dry-run CLI or endpoint. Execution should be added only after
 Phase 6 confirms the real paper account round trip.
+
+The first dry-run boundary is now `POST /api/v1/strategy/schedule`. It requires a caller-supplied
+session date, uses an injected-clock session check, evaluates strategy and risk without an execution
+symbol, and replays an idempotent run record. The current adapter stores records in process memory;
+a durable audit repository remains before unattended use.
 
 ## Phase 6 gate
 
