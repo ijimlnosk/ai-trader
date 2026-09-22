@@ -35,7 +35,10 @@ git diff --check passed. Tests use stubbed KIS transport; no broker order was se
 Production wiring test exercises createRuntimeApp with its real KIS order adapter and a stubbed
 fetch; server.ts injects the Drizzle repository. Secret-safe diagnostics and existing read/risk tests pass.
 # Remaining Work
-Operating server SSH target, deployment directory and existing Compose project were not supplied.
-Docker image build/deployment and the actual KIS paper one-share BUY/holdings confirmation remain
-unverified. Follow the runbook during the permitted market session once the environment is available.
-Keep this plan active until that checkpoint is observed. Do not mark a mocked order as a real fill.
+2026-09-21: user supplied sol-server / ~/ai-trader-app / Compose ai-trader-app. Docker image build,
+migration and deployment passed; health and spaced production KIS read/risk endpoints returned 200.
+An actual historical one-share BUY (20260917, broker order 23317) was independently confirmed by
+KIS fill inquiry and holdings; persisted order/execution match. Repeated terminal reconciliation
+did not duplicate history. Details: docs/PAPER_E2E_2026-09-21.md.
+Keep this plan active for the newly requested BUY/SELL checkpoint during a permitted market session.
+No new KIS order was sent in this session; paper execution remains explicitly disabled.

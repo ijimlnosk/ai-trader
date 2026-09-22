@@ -3,14 +3,17 @@ Connect KIS reconciliation to a durable execution ledger and real daily realized
 # Constraints
 Paper only; deterministic risk mandatory; no broker POST retries; no fabricated basis or historical P/L.
 # Current State
-Existing explicit reconcile reads cumulative KIS fills and atomically updates orders/position mirror.
-Risk still uses zero loss history. Kill switch exists in execution configuration.
+Implemented in commit 2411e64. Explicit reconciliation atomically persists cumulative fills,
+execution deltas and the position mirror. Production risk reads ledger-backed realized P/L and
+loss streak, rejecting incomplete history or holdings mismatches. Local verification passed;
+deployment, historical KIS fill/holdings and preserved ledger checks passed on 2026-09-21.
+New paper BUY/SELL reconciliation and realized-P/L observations remain pending a market session.
 # Plan
-- [ ] Exact ledger projection and execution delta invariants
-- [ ] Additive executions migration, historical cumulative fill backfill and atomic persistence
-- [ ] Ledger-backed production risk and account holdings coverage validation
-- [ ] Partial/unfilled/UNKNOWN regression tests, database rollback/idempotency proof
-- [ ] Documentation and repository checks
+- [x] Exact ledger projection and execution delta invariants
+- [x] Additive executions migration, historical cumulative fill backfill and atomic persistence
+- [x] Ledger-backed production risk and account holdings coverage validation
+- [x] Partial/unfilled/UNKNOWN regression tests, database rollback/idempotency proof
+- [x] Documentation and repository checks
 # Decisions
 Executions are observed cumulative deltas, not fabricated exchange execution IDs or timestamps.
 Use moving-average cost, 8-decimal fixed precision with residual cost retained until final disposal.
@@ -22,6 +25,12 @@ Reuse explicit reconciliation API; no new timer, order retry, strategy or AI pat
 Inspected rules, active plans, application/repository/adapter and tests. Worktree initially clean.
 Checked official KIS inquire_daily_ccld sample for cumulative fields and continuation protocol.
 # Validation
-Pending.
+2026-09-21: pnpm lint, pnpm typecheck and pnpm build passed on source commit 1ecd5e7.
+pnpm test with isolated PostgreSQL 17.6: 414 tests passed, none skipped, including all 10 database
+tests. Compiled migrations applied successfully twice on a separate fresh disposable database.
+No broker order was sent. See active/paper-e2e-verification.md for remaining operational evidence.
 # Remaining Work
-Implementation and validation; actual deployment/migration and broker reconciliation require environment access.
+2026-09-21 deployment/migration and historical KIS fill/holdings checks passed; repeated terminal
+reconciliation left DB counts unchanged. New paper BUY/SELL reconciliation and SELL-derived risk
+inputs remain pending the next permitted session. See docs/PAPER_E2E_2026-09-21.md and the active
+paper-e2e-verification plan. Implementation/local verification are complete.

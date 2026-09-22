@@ -1,4 +1,6 @@
 import { BrokerError } from '../../../application/brokerError.ts';
+import { BrokerOrderNotSent } from '../../../application/orders/ports.ts';
+import { createKisRequestGate, KisRequestQueueFull } from './kisRequestGate.ts';
 
 export const KIS_PAPER_URL = 'https://openapivts.koreainvestment.com:29443';
 export interface KisConfiguration {
@@ -10,14 +12,18 @@ export interface KisConfiguration {
 }
 export type KisFetch = typeof fetch;
 
-export function createKisClient(config: KisConfiguration, fetcher: KisFetch = fetch) {
+export function createKisClient(config: KisConfiguration, fetcher: KisFetch = fetch, minRequestIntervalMs = 0) {
+  const gate = createKisRequestGate(minRequestIntervalMs);
   const isConfigured = () => config.baseUrl === KIS_PAPER_URL && Boolean(config.appKey && config.appSecret);
-  async function requestWithMetadata(
+  async function send(
     path: string, init: RequestInit, authentication = false,
     observeResponse?: (body: unknown, httpStatus: number) => void,
     observeFailure?: (kind: 'timeout' | 'network_error') => void,
+    canSend?: () => boolean,
   ) {
     if (!isConfigured()) throw new BrokerError('configuration_error');
+    // The application rechecks quote age/session after all queue and token waits, before fetch.
+    if (canSend && !canSend()) throw new BrokerOrderNotSent('quote_or_session_expired');
     let response: Response;
     try {
       response = await fetcher(`${config.baseUrl}${path}`, {
@@ -45,6 +51,14 @@ export function createKisClient(config: KisConfiguration, fetcher: KisFetch = fe
         (authentication && response.status === 400)) throw new BrokerError('authentication_error');
     if (!response.ok) throw new BrokerError('provider_unavailable');
     return { body, continuation: response.headers.get('tr_cont') };
+  }
+  async function requestWithMetadata(...args: Parameters<typeof send>) {
+    if (!isConfigured()) throw new BrokerError('configuration_error');
+    try { return await gate(() => send(...args)); }
+    catch (error) {
+      if (args[5] && error instanceof KisRequestQueueFull) throw new BrokerOrderNotSent('broker_request_unavailable');
+      throw error;
+    }
   }
   return {
     isConfigured, requestWithMetadata,

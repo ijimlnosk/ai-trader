@@ -6,8 +6,10 @@ opt-in paper MARKET orders, deterministic Strategy v1 and offline daily backtest
 See [paper order deployment and verification](docs/PAPER_ORDERS.md) before enabling execution.
 
 Paper-order v1 validation (2026-09-16): typecheck, lint, build and 335 tests passed with a disposable
-PostgreSQL 17 database, including migration replay. Docker deployment and an actual KIS paper fill
-have not been verified in this workspace. Execution defaults to disabled.
+PostgreSQL 17 database, including migration replay. On 2026-09-21, Docker deployment, KIS paper
+authentication, historical fill/holdings and persisted ledger checks passed; see the
+[deployment verification report](docs/PAPER_E2E_2026-09-21.md). A new BUY/SELL round trip remains
+pending a permitted session. Execution defaults to disabled and was left disabled on the server.
 
 ## Prerequisites
 

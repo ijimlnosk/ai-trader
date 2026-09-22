@@ -9,8 +9,8 @@ import type { KisDiagnosticSink } from './kisDiagnostics.ts';
 import type { OrderBroker } from '../../../application/orders/ports.ts';
 import { createKisOrderAdapter } from './kisOrderAdapter.ts';
 
-export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now, diagnostic?: KisDiagnosticSink): MarketBroker & AccountBroker & OrderBroker {
-  const session = createKisSession(config, fetcher, now, diagnostic);
+export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now, diagnostic?: KisDiagnosticSink, minRequestIntervalMs = 0): MarketBroker & AccountBroker & OrderBroker {
+  const session = createKisSession(config, fetcher, now, diagnostic, minRequestIntervalMs);
   return {
     isConfigured: session.isConfigured,
     ...createKisPortfolioAdapter(config, session),

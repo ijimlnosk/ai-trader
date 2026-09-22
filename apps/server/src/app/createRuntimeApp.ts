@@ -23,7 +23,7 @@ export function createRuntimeApp(
     appSecret: environment.KIS_APP_SECRET,
     accountNo: environment.KIS_ACCOUNT_NO,
     accountProductCode: environment.KIS_ACCOUNT_PRODUCT_CODE,
-  }, undefined, Date.now, (event) => app.log.warn(event, 'KIS API request rejected'));
+  }, undefined, Date.now, (event) => app.log.warn(event, 'KIS API request rejected'), 1500);
   const account = accountBroker ?? broker;
   // Diagnostics run only on requests, after app construction has completed.
   const app = createApp(environment, database, {

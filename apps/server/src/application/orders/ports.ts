@@ -4,7 +4,8 @@ import type { Portfolio } from '../../domain/portfolio.ts';
 
 export interface OrderBroker {
   getBuyingPower(symbol: string, estimatedPrice: string): Promise<{ cash: string; quantity: string }>;
-  submitOrder(request: OrderRequest): Promise<{ accepted: true; brokerOrderId: string } | { accepted: false }>;
+  /** Invoke canSubmit immediately before transport dispatch, after any queue/auth waits. */
+  submitOrder(request: OrderRequest, canSubmit?: () => boolean): Promise<{ accepted: true; brokerOrderId: string } | { accepted: false }>;
   getOrderFill(order: StoredOrder, brokerOrderId: string): Promise<BrokerFill | null>;
 }
 export type OrderPatch = Partial<Pick<StoredOrder, 'requestedPrice' | 'riskStatus' | 'riskReasons' | 'brokerOrderId'
@@ -12,6 +13,12 @@ export type OrderPatch = Partial<Pick<StoredOrder, 'requestedPrice' | 'riskStatu
 /** An explicit successful-HTTP KIS rejection, distinct from an ambiguous submission failure. */
 export class BrokerOrderRejected extends Error {
   constructor() { super('Broker rejected paper order'); this.name = 'BrokerOrderRejected'; }
+}
+/** Only for proven pre-dispatch rejection; never use for an ambiguous transport result. */
+export class BrokerOrderNotSent extends Error {
+  constructor(public readonly code: 'quote_or_session_expired' | 'broker_request_unavailable') {
+    super(code); this.name = 'BrokerOrderNotSent';
+  }
 }
 export interface OrderRepository {
   getTradeLedger(tradeDate: string): Promise<TradeLedger>;

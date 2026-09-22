@@ -24,7 +24,7 @@ export function createKisOrderAdapter(config: KisConfiguration, session: KisSess
       const { output } = parseKis(buyingPowerSchema, response.body);
       return { cash: output.nrcvb_buy_amt, quantity: output.nrcvb_buy_qty };
     },
-    async submitOrder(request) {
+    async submitOrder(request, canSubmit) {
       const ids = account();
       // Defense at the write adapter: no fractional shares, arbitrary order modes or symbols.
       orderInputSchema.parse({ symbol: request.symbol, side: request.side, quantity: request.quantity,
@@ -34,7 +34,7 @@ export function createKisOrderAdapter(config: KisConfiguration, session: KisSess
           CANO: ids.accountNo, ACNT_PRDT_CD: ids.accountProductCode, PDNO: request.symbol,
           ORD_DVSN: '01', ORD_QTY: request.quantity, ORD_UNPR: '0', EXCG_ID_DVSN_CD: 'KRX',
           SLL_TYPE: request.side === 'SELL' ? '01' : '', CNDT_PRIC: '',
-        });
+        }, canSubmit);
         return { accepted: true, brokerOrderId: parseKis(orderReceiptSchema, response.body).output.ODNO };
       } catch (error) {
         if (error instanceof BrokerOrderRejected) return { accepted: false };

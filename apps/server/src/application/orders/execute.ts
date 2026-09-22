@@ -3,7 +3,7 @@ import { isPaperOrderSession, seoulOrderDate, type CreateOrderRequest, type Stor
 import type { MarketBroker } from '../market.ts';
 import type { AccountBroker } from '../portfolio.ts';
 import { createPaperPortfolioRiskContextProvider } from '../paperRiskContext.ts';
-import { OrderError, type OrderBroker, type OrderRepository } from './ports.ts';
+import { BrokerOrderNotSent, OrderError, type OrderBroker, type OrderRepository } from './ports.ts';
 import { orderInputSchema, validAmount } from './input.ts';
 
 export interface ExecutionDependencies {
@@ -24,6 +24,7 @@ export function createOrderExecution(deps: ExecutionDependencies) {
     const reserved = await deps.repository.reserve(key, request);
     if (!reserved.created) return reserved.order; // Never re-price, re-evaluate or re-submit a replay.
     let order = reserved.order;
+    let canSubmit: (() => boolean) | undefined;
     const fail = (failureCode: string) => deps.repository.update(order, { brokerStatus: 'FAILED', failureCode });
     try {
       if (!isPaperOrderSession(now())) return await fail('market_session_closed');
@@ -35,6 +36,7 @@ export function createOrderExecution(deps: ExecutionDependencies) {
         const age = now().getTime() - Date.parse(quote.timestamp);
         return Number.isFinite(age) && age >= 0 && age <= 10_000;
       };
+      canSubmit = () => fresh() && isPaperOrderSession(now());
       if (quote.symbol !== request.symbol || !validAmount(quote.price, true) || !fresh()) return await fail('invalid_quote');
       const position = portfolio.positions.find((item) => item.symbol === request.symbol);
       if (request.side === 'SELL' && (!position || !validAmount(position.availableQuantity)
@@ -65,8 +67,9 @@ export function createOrderExecution(deps: ExecutionDependencies) {
     let result;
     try {
       result = await deps.broker.submitOrder({ orderId: order.id, symbol: order.symbol, side: order.side,
-        quantity: order.quantity, orderType: 'MARKET' });
-    } catch {
+        quantity: order.quantity, orderType: 'MARKET' }, canSubmit);
+    } catch (error) {
+      if (error instanceof BrokerOrderNotSent) return fail(error.code);
       // Timeout, malformed success or connection failure may follow broker acceptance.
       return deps.repository.update(order, { brokerStatus: 'UNKNOWN', failureCode: 'submission_outcome_unknown' });
     }
