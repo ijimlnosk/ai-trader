@@ -8,7 +8,7 @@
 | 2 | Deterministic Strategy Engine v1 | Complete |
 | 3 | Offline next-open backtest engine | Complete |
 | 4 | Strategy → deterministic Risk connection | Complete |
-| 5 | Scheduler and trading-session coordination | In progress (dry-run boundary) |
+| 5 | Scheduler and trading-session coordination | Complete (deployed; next-session run pending) |
 | 6 | KIS paper BUY/SELL E2E during an open session | Pending next permitted session |
 | 7 | Strategy → Risk → Execution paper loop | Blocked on Phases 5 and 6 |
 

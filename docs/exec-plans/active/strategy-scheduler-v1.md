@@ -22,6 +22,11 @@ Add a paper-only scheduler boundary that evaluates strategy and risk during an e
 ## Validation
 
 - Server TypeScript compilation passes.
+- 2026-09-23: deployed to `jinsol@sol-server:~/ai-trader-app`; Compose build, migration, and server recreation succeeded.
+- Production health returned 200 with `database=connected` and `tradingMode=paper`.
+- Runtime flags remained `BROKER_MODE=paper`, `LIVE_TRADING_ENABLED=false`, and `PAPER_ORDER_EXECUTION_ENABLED=false`.
+- Authenticated scheduler request outside the declared Seoul session failed closed with `order_context_unavailable`; no order was submitted.
+- PostgreSQL reported `strategy_runs` present with zero records after the rejected request.
 
 ## Remaining
 
