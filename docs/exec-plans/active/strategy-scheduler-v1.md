@@ -27,6 +27,8 @@ Add a paper-only scheduler boundary that evaluates strategy and risk during an e
 - Runtime flags remained `BROKER_MODE=paper`, `LIVE_TRADING_ENABLED=false`, and `PAPER_ORDER_EXECUTION_ENABLED=false`.
 - Authenticated scheduler request outside the declared Seoul session failed closed with `order_context_unavailable`; no order was submitted.
 - PostgreSQL reported `strategy_runs` present with zero records after the rejected request.
+- 2026-09-23 preflight: health, portfolio, and KIS paper broker status returned 200; portfolio remained one available `005930` share.
+- Before/after counts remained orders=1, executions=1, fills=1, strategy_runs=0.
 
 ## Remaining
 
