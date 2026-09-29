@@ -1,21 +1,56 @@
-import { SafetyBanner } from '@/entities/status/SafetyBanner';
-import { PortfolioPanel } from '@/entities/portfolio/PortfolioPanel';
-import { LoopRunsPanel } from '@/entities/loopRuns/LoopRunsPanel';
-import { OrdersPanel } from '@/entities/orders/OrdersPanel';
-import { SnapshotsPanel } from '@/entities/snapshots/SnapshotsPanel';
+'use client';
+import { useState } from 'react';
+import { LatestRunCard } from '@/entities/loopRuns/LatestRunCard';
+import { LoopRunsList } from '@/entities/loopRuns/LoopRunsList';
+import { OrdersList } from '@/entities/orders/OrdersList';
+import { HoldingsList } from '@/entities/portfolio/HoldingsList';
+import { PortfolioSummary } from '@/entities/portfolio/PortfolioSummary';
+import { SnapshotsList } from '@/entities/snapshots/SnapshotsList';
+import { StatusCard } from '@/entities/status/StatusCard';
+import { Tabs } from '@/shared/ui/Tabs';
+import { AppBar } from './AppBar';
 
-/** Read-only operator console. There is intentionally no order, tick or configuration control. */
-export function ConsoleView() {
+const TABS = [
+  { value: 'holdings', label: '보유' }, { value: 'orders', label: '주문' },
+  { value: 'runs', label: '실행기록' }, { value: 'data', label: '데이터' },
+] as const;
+type Tab = (typeof TABS)[number]['value'];
+
+/** Read-only console. There is intentionally no order, tick or configuration control. */
+export function ConsoleView({ email }: { email: string }) {
+  const [tab, setTab] = useState<Tab>('holdings');
   return (
     <>
-      <SafetyBanner />
-      <main className="grid">
-        <PortfolioPanel />
-        <LoopRunsPanel />
-        <OrdersPanel />
-        <SnapshotsPanel />
+      <AppBar email={email} />
+      <main className="layout">
+        <div className="column">
+          <PortfolioSummary />
+          <StatusCard />
+          <LatestRunCard />
+        </div>
+        <div className="column">
+          <Tabs value={tab} onChange={setTab} items={TABS}>
+            {(value) => value === 'holdings' ? <HoldingsList /> : value === 'orders' ? <OrdersList />
+              : value === 'runs' ? <LoopRunsList /> : <SnapshotsList />}
+          </Tabs>
+        </div>
       </main>
-      <footer className="muted">읽기 전용 콘솔 · 시간은 Asia/Seoul · 금액 KRW · 수량 주</footer>
+      <footer className="page-footer">읽기 전용 · 시간 KST · 금액 원 · 수량 주</footer>
+    </>
+  );
+}
+
+export function NoAccountView({ email }: { email: string }) {
+  return (
+    <>
+      <AppBar email={email} showMode={false} />
+      <main className="layout layout-narrow">
+        <section className="card empty-state">
+          <span aria-hidden className="empty-icon">🔗</span>
+          <h1>연결된 거래계좌가 없어요</h1>
+          <p className="subtle">이 계정에는 아직 조회할 수 있는 계좌가 없어요. 관리자에게 계좌 연결을 요청해 주세요.</p>
+        </section>
+      </main>
     </>
   );
 }

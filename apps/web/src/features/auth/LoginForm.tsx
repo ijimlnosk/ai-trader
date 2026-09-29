@@ -16,10 +16,12 @@ export function LoginForm() {
     finally { setPending(false); }
   }
   return <form onSubmit={submit} className="login-form">
-    <label htmlFor="email">이메일</label><input id="email" name="email" type="email" autoComplete="username" maxLength={254} required />
-    <label htmlFor="password">비밀번호</label><input id="password" name="password" type="password" autoComplete="current-password" maxLength={128} required />
-    {error && <p role="alert" className="warning">{error}</p>}
-    <button type="submit" disabled={pending}>{pending ? '로그인 중…' : '로그인'}</button>
-    <p className="muted">관리자가 등록한 계정으로 로그인하세요. 계정 발급·비밀번호 재설정은 관리자에게 요청해 주세요.</p>
+    <label className="field"><span>이메일</span>
+      <input name="email" type="email" inputMode="email" autoComplete="username" autoCapitalize="none" maxLength={254} required /></label>
+    <label className="field"><span>비밀번호</span>
+      <input name="password" type="password" autoComplete="current-password" maxLength={128} required /></label>
+    {error && <p role="alert" className="notice notice-warn">{error}</p>}
+    <button type="submit" className="primary" disabled={pending}>{pending ? '로그인 중…' : '로그인'}</button>
+    <p className="footnote">관리자가 등록한 계정으로 로그인하세요. 계정 발급·비밀번호 재설정은 관리자에게 요청해 주세요.</p>
   </form>;
 }
