@@ -331,8 +331,8 @@ marked to the final close; no invented terminal liquidation occurs.
 
 Input session calendars are explicit and must match all universe histories; no missing bars are
 interpolated. This cannot detect omissions in an incorrectly supplied calendar. Paper evaluation
-rejects future or older-than-four-day closes. Submission additionally requires the next calendar
-weekday, conservatively rejecting signals carried across weekday holidays. Dataset close is modeled
+rejects future or older-than-four-day closes. Submission additionally requires the next session in
+the reviewed KRX calendar (decision 0009); dates outside its coverage are rejected. Dataset close is modeled
 at 15:30 Seoul and open at 09:00; special sessions are unsupported. The existing execution layer still
 checks its own 09:00–15:20 window and quote receipt freshness. See [Strategy runbook](STRATEGY.md) and
 [decision 0007](decisions/0007-deterministic-strategy-backtest.md) for definitions and limitations.
@@ -342,7 +342,7 @@ checks its own 09:00–15:20 window and quote receipt freshness. See [Strategy r
 `POST /api/v1/strategy/paper-loop/tick` is an authenticated application/paperLoop entry point,
 separate from the order-free scheduler. It accepts one archived `005930` dataset, normalized digest,
 archive reference and explicitly sourced historical/current session calendar. Structural validation,
-96-hour freshness, next-weekday eligibility, regular session and two default-off opt-ins precede
+96-hour freshness, next-reviewed-KRX-session eligibility, regular session and two default-off opt-ins precede
 new work. Calendar-source references are operator attestations, not automatic exchange verification.
 
 Migration 0004 adds `paper_loop_runs` with full JSONB input/result/order snapshot, retained strategy
@@ -371,3 +371,15 @@ and actual execution still obtains fresh portfolio/quote/buying power and re-eva
 Earlier statements describing no loop/poller refer to the pre-0004 implementation; this bounded,
 default-off loop is the only new background behavior. See [runbook](PAPER_LOOP.md) and
 [decision 0008](decisions/0008-durable-paper-loop.md).
+
+## KRX calendar and daily snapshots
+
+`domain/scheduler/krxCalendar.ts` is a source-cited, versioned calendar with explicit coverage;
+uncovered dates are unknown and skip. The loop's next-session check uses it (the earlier
+next-weekday rule is replaced). `application/marketData` owns a provider-neutral daily-history port
+(KIS `FHKST03010100` adapter) and a collector that archives calendar-aligned bars after 18:30 KST in
+`market_daily_snapshots` (migration 0005), recording revisions of earlier bars. The repository
+re-parses JSONB datasets into schema order and rechecks their digest. `application/paperLoop/prepare`
+builds a tick input from the previous session's snapshot. Authenticated, order-free endpoints
+`POST /api/v1/market/daily-snapshots/collect` and `GET /api/v1/strategy/paper-loop/prepared` expose
+them; nothing is scheduled automatically. See [decision 0009](decisions/0009-reviewed-krx-calendar-and-daily-snapshots.md).

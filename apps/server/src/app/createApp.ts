@@ -20,10 +20,15 @@ import { registerOrderRoutes } from '../interfaces/http/orders.ts';
 import { createMemoryStrategyRunRepository, createStrategyScheduler } from '../application/scheduler/index.ts';
 import { registerStrategySchedulerRoute } from '../interfaces/http/strategyScheduler.ts';
 import type { StrategyRunRepository } from '../application/scheduler/index.ts';
+import type { DailyHistorySource, DailySnapshotRepository } from '../application/marketData/ports.ts';
+import { createDailySnapshotCollector } from '../application/marketData/collect.ts';
+import { createPaperLoopPreparer } from '../application/paperLoop/prepare.ts';
+import { registerMarketDataRoutes } from '../interfaces/http/marketData.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
-  dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository },
+  dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
+    dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -54,6 +59,10 @@ export function createApp(
     enabled: environment.PAPER_LOOP_ENABLED, executionEnabled: environment.PAPER_ORDER_EXECUTION_ENABLED,
   }) : undefined;
   registerPaperLoopRoute(app, tick, environment.ORDER_API_TOKEN);
+  const snapshots = dependencies.dailySnapshots;
+  registerMarketDataRoutes(app, { apiToken: environment.ORDER_API_TOKEN,
+    collect: snapshots && dependencies.dailyHistory ? createDailySnapshotCollector({ history: dependencies.dailyHistory, snapshots }) : undefined,
+    prepare: snapshots ? createPaperLoopPreparer({ snapshots }) : undefined });
   if (environment.PAPER_LOOP_ENABLED && environment.PAPER_LOOP_TASK_FILE) {
     if (!tick) throw new Error('Paper loop repository required');
     let stop: (() => Promise<void>) | undefined;

@@ -36,6 +36,13 @@
       "when": 1790648500920,
       "tag": "0004_paper_loop_claims",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790657069736,
+      "tag": "0005_market_daily_snapshots",
+      "breakpoints": true
     }
   ]
 }

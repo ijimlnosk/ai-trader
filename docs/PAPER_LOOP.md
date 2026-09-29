@@ -34,8 +34,8 @@ An operator must independently confirm calendar completeness, provider revisions
 operation; the server cannot certify a calendar merely because a caller supplied a source string.
 
 A new tick requires the actual declared Seoul weekday, 09:00 inclusive to 15:20 exclusive, a
-completed bar no older than 96 hours and exactly the next calendar weekday. Holiday gaps and
-special sessions are unsupported. A closed session or invalid input submits nothing. Execution
+completed bar no older than 96 hours and exactly the next session in the reviewed KRX calendar
+(`domain/scheduler/krxCalendar.ts`). Dates outside its coverage and special sessions are unsupported. A closed session or invalid input submits nothing. Execution
 still independently rechecks account, ledger, quote age, session, buying power and deterministic risk.
 
 ## Durable states and recovery
@@ -99,3 +99,13 @@ A later bounded commissioning session needs an exclusive paper account, independ
 archived data/calendar, one reviewed task, agreed operating window, and explicit loop + paper
 execution opt-ins. Strategy sizing is unchanged; do not force a signal or truncate quantities.
 Retain results and disable again. A HOLD demonstrates a tick, not a strategy-generated fill.
+
+## Prepared input from archived snapshots
+
+After 18:30 KST on a session, `POST /api/v1/market/daily-snapshots/collect` (same token) archives
+calendar-aligned KIS daily bars through that session; earlier it archives the previous session.
+During the next session, `GET /api/v1/strategy/paper-loop/prepared` returns
+`{ "status": "ready", "input": ... }` or a skip reason. Post `input` unchanged to the tick endpoint.
+Both endpoints are order-free and work with every opt-in off. Review `revisedDates` in collection
+results; a revised bar is archived as a new snapshot, never merged silently. See
+[decision 0009](decisions/0009-reviewed-krx-calendar-and-daily-snapshots.md).

@@ -5,6 +5,7 @@ import { datasetSchema } from '../strategy/input.ts';
 import { candleTime, validateCandles } from '../../domain/strategy/marketData.ts';
 import { isPaperOrderSession, seoulOrderDate } from '../../domain/orders.ts';
 import { strategyOrderKey } from '../strategy/index.ts';
+import { nextKrxSession } from '../../domain/scheduler/krxCalendar.ts';
 
 export const paperLoopInputSchema = z.strictObject({
   runKey: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/),
@@ -32,10 +33,10 @@ export function loopOrderKey(input: PaperLoopInput): string {
     evaluatedAt: candleTime(input.data.sessions.at(-1)!, 'close') });
 }
 export function eligibleLoopSession(input: PaperLoopInput, now: Date): boolean {
-  const close = Date.parse(candleTime(input.data.sessions.at(-1)!, 'close'));
-  const next = new Date(close);
-  do { next.setUTCDate(next.getUTCDate() + 1); } while ([0, 6].includes(next.getUTCDay()));
+  const lastBar = input.data.sessions.at(-1)!;
+  const close = Date.parse(candleTime(lastBar, 'close'));
+  // The reviewed calendar decides the next session; uncovered dates are never eligible.
   return isPaperOrderSession(now) && seoulOrderDate(now.toISOString()) === input.sessionDate
-    && next.toISOString().slice(0, 10).replaceAll('-', '') === input.sessionDate
+    && nextKrxSession(lastBar) === input.sessionDate
     && now.getTime() >= close && now.getTime() - close <= 96 * 3600000;
 }

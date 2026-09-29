@@ -166,3 +166,24 @@ export const paperLoopRuns = pgTable('paper_loop_runs', {
   uniqueIndex('paper_loop_account_active_idx').on(t.executionAccount).where(sql`${t.status} <> 'COMPLETE'`),
   check('paper_loop_status', sql`${t.status} IN ('CLAIMED','TRACKING','COMPLETE','HALTED')`),
 ]);
+
+/** Archived provider daily bars; shared market data, not account-scoped. */
+export const marketDailySnapshots = pgTable('market_daily_snapshots', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  symbol: text('symbol').notNull(),
+  through: text('through').notNull(),
+  collectedAt: instant('collected_at').notNull(),
+  calendarVersion: text('calendar_version').notNull(),
+  rawSha256: text('raw_sha256').notNull(),
+  dataset: jsonb('dataset').$type<import('../../domain/strategy/marketData.ts').MarketDataset>().notNull(),
+  datasetSha256: text('dataset_sha256').notNull(),
+  candlesSha256: text('candles_sha256').notNull(),
+  revisedDates: jsonb('revised_dates').$type<string[]>().notNull(),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('market_daily_snapshot_data_idx').on(t.symbol, t.through, t.candlesSha256),
+  index('market_daily_snapshot_latest_idx').on(t.symbol, t.through, t.createdAt),
+  check('market_daily_snapshot_symbol', sql`${t.symbol} ~ '^[0-9]{6}$'`),
+  check('market_daily_snapshot_through', sql`${t.through} ~ '^[0-9]{8}$'`),
+  check('market_daily_snapshot_sha256', sql`${t.rawSha256} ~ '^[0-9a-f]{64}$' AND ${t.datasetSha256} ~ '^[0-9a-f]{64}$' AND ${t.candlesSha256} ~ '^[0-9a-f]{64}$'`),
+]);

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { nextKrxSession } from '../../domain/scheduler/krxCalendar.ts';
 import { seoulOrderDate } from '../../domain/orders.ts';
 import { DEFAULT_STRATEGY_CONFIG } from '../../domain/strategy/config.ts';
 import { evaluateStrategy, type StrategyEvaluation } from '../../domain/strategy/evaluate.ts';
@@ -25,13 +26,9 @@ export function createStrategyService(deps: {
     const age = now.getTime() - completedAt;
     // Conservative daily freshness ceiling; extended holidays require a later valid dataset.
     if (!Number.isFinite(age) || age < 0 || age > 4 * 86400000) throw new OrderError('order_context_unavailable');
-    if (executeSymbol !== undefined) {
-      const nextWeekday = new Date(completedAt);
-      do { nextWeekday.setUTCDate(nextWeekday.getUTCDate() + 1); }
-      while ([0, 6].includes(nextWeekday.getUTCDay()));
-      if (seoulOrderDate(now.toISOString()) !== nextWeekday.toISOString().slice(0, 10).replaceAll('-', '')) {
-        throw new OrderError('order_context_unavailable');
-      }
+    // Execution only on the next reviewed KRX session; dates outside the calendar never qualify.
+    if (executeSymbol !== undefined && seoulOrderDate(now.toISOString()) !== nextKrxSession(data.sessions.at(-1)!)) {
+      throw new OrderError('order_context_unavailable');
     }
     if (executeSymbol !== undefined && !deps.orders) throw new OrderError('execution_disabled');
     if (executeSymbol !== undefined && !data.series.some((s) => s.symbol === executeSymbol)) throw new OrderError('order_context_unavailable');

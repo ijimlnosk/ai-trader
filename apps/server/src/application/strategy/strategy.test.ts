@@ -51,7 +51,7 @@ it('rejects unavailable or inconsistent account context', async () => {
   await expect(mismatch(s.data)).rejects.toThrow('order_context_unavailable');
   expect(s.broker.submitOrder).not.toHaveBeenCalled();
 });
-it('rejects future, stale and non-next-weekday executions before broker submission', async () => {
+it('rejects future, stale and non-next-session executions before broker submission', async () => {
   const s = strategySetup();
   for (const timestamp of [candleTime('20260915', 'open'), '2026-09-22T01:00:00.000Z', '2026-09-17T01:00:00.000Z']) {
     const evaluate = createStrategyService({ ...s.strategyDeps, now: () => new Date(timestamp) });
@@ -59,6 +59,22 @@ it('rejects future, stale and non-next-weekday executions before broker submissi
   }
   await expect(s.evaluate(s.data, '123456')).rejects.toThrow('order_context_unavailable');
   expect(s.broker.submitOrder).not.toHaveBeenCalled();
+});
+it('uses the reviewed KRX calendar for the execution session after a Monday closure', async () => {
+  const s = strategySetup();
+  const shift = new Map(s.data.sessions.map((date, i, all) => [date, all.length - 1 - i]));
+  const dates: string[] = [];
+  for (const day = new Date('2026-10-02T00:00:00.000Z'); dates.length < s.data.sessions.length; day.setUTCDate(day.getUTCDate() - 1)) {
+    if (![0, 6].includes(day.getUTCDay())) dates.unshift(day.toISOString().slice(0, 10).replaceAll('-', ''));
+  }
+  const data = structuredClone(s.data);
+  data.sessions = dates;
+  for (const series of data.series) series.candles.forEach((bar) => { bar.date = dates[dates.length - 1 - shift.get(bar.date)!]!; });
+  const at = (iso: string) => createStrategyService({ ...s.strategyDeps, now: () => new Date(iso) });
+  await expect(at('2026-10-05T01:00:00.000Z')(data, '005930')).rejects.toThrow('order_context_unavailable');
+  expect(s.account.getPortfolio).not.toHaveBeenCalled();
+  await at('2026-10-06T01:00:00.000Z')(data, '005930').catch(() => undefined);
+  expect(s.account.getPortfolio).toHaveBeenCalled();
 });
 it('risk denial at evaluation does not invoke order execution', async () => {
   const s = strategySetup();

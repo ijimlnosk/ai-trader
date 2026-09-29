@@ -1,4 +1,8 @@
 import { createPaperLoopRepository } from './paperLoopRepository.ts';
+import { createDailySnapshotRepository } from './dailySnapshotRepository.ts';
+import { createDailySnapshotCollector } from '../../application/marketData/collect.ts';
+import { createPaperLoopPreparer } from '../../application/paperLoop/prepare.ts';
+import { bar, stubHistory } from '../../../test/marketDataFixtures.ts';
 import { paperLoopSetup } from '../../../test/paperLoopSetup.ts';
 import { loopOrderKey } from '../../application/paperLoop/input.ts';
 import { createPaperLoop } from '../../application/paperLoop/index.ts';
@@ -37,11 +41,27 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
       SELECT id,'005930','BUY',2,70000,'KRW','historical-account','987','20260915','FILLED',2,140000,now() FROM p`);
     const ledgerMigration = await readFile(new URL('../../../drizzle/0002_lean_black_panther.sql', import.meta.url), 'utf8');
     await database.db.execute(sql.raw(ledgerMigration));
-    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims']) {
+    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots']) {
       await database.db.execute(sql.raw(await readFile(new URL(`../../../drizzle/${name}.sql`, import.meta.url), 'utf8')));
     }
   });
   afterAll(async () => { if (database) await database.close(); });
+  it('archives market snapshots idempotently and restores digest-stable datasets from JSONB', async () => {
+    const repo = createDailySnapshotRepository(database.db);
+    const now = () => new Date('2026-09-29T00:00:00.000Z');
+    const week = [bar('20260922'), bar('20260923'), bar('20260928')];
+    const first = await createDailySnapshotCollector({ history: stubHistory(week), snapshots: repo, now })('000660');
+    const again = await createDailySnapshotCollector({ history: stubHistory(week, '2026-09-29T01:00:00.000Z'), snapshots: repo, now })('000660');
+    expect(first.status).toBe('saved'); expect(again.status).toBe('unchanged');
+    const revised = await createDailySnapshotCollector({ history: stubHistory([bar('20260922'), bar('20260923', '9'), bar('20260928')]),
+      snapshots: createDailySnapshotRepository(database.db), now })('000660');
+    expect(revised).toMatchObject({ status: 'saved', snapshot: { revisedDates: ['20260923'] } });
+    expect((await repo.latestThrough('000660', '20260928'))?.id).toBe(revised.status === 'saved' ? revised.snapshot.id : '');
+    await createDailySnapshotCollector({ history: stubHistory(week), snapshots: repo, now })('005930');
+    const prepared = await createPaperLoopPreparer({ snapshots: createDailySnapshotRepository(database.db),
+      now: () => new Date('2026-09-29T00:05:00.000Z') })();
+    expect(prepared.status).toBe('ready');
+  });
   it('preserves existing rows after expansion', async () => {
     const legacy = await database.db.select().from(orders).where(isNull(orders.executionAccount));
     expect(legacy).toHaveLength(1); expect(legacy[0]).toMatchObject({ price: '70000.00000000', executionAccount: null, brokerStatus: null });
