@@ -43,3 +43,16 @@ collection as "retry later / skip", never as missing data to fill.
 
 After 18:30 KST, collect through `20260929` and compare against a manual pull; on 2026-09-30
 confirm the prepared input. Phase B scheduling is not started.
+
+## Phase B deployment, disabled (14:36–14:47 KST)
+
+Commit `fa6fc6c` (daily schedule, timer, environment guards) deployed the same way; 4 runtime files,
+package SHA-256 `277da10a30dd8ec90ea70ae51ed45c8709c4a38a00630d5fb78842a9924e39aa`. Evidence:
+`/home/jinsol/ai-trader-backups/daily-schedule-deploy-20260929` (source, `.env`, Compose, DB dump
+with `pg_restore --list` ok, before/after ledger snapshots). `.env` and Compose unchanged.
+
+- Healthy; paper, live/execution/loop false. The server-specific Compose file does not pass
+  `MARKET_DATA_SCHEDULE_ENABLED` or `PAPER_LOOP_SCHEDULE_ENABLED`, so both are unset (default false);
+  enabling requires adding them there. No `Daily schedule` log events after start.
+- The first collect after this restart returned `unchanged` (same snapshot id) without timeout.
+- Ledger hashes and loop row count unchanged.

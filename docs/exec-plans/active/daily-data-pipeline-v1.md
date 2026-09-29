@@ -105,6 +105,6 @@ the operator-built digest for the same data.
   input matched the independent Phase 5 dataset. See [deployment](../../DATA_PIPELINE_DEPLOY_2026-09-29.md).
 - After 18:30 KST 9/29: collect through 9/29 and compare with a manual pull; on 9/30 confirm the
   prepared input. Then Phase B (needs separate approval before enabling).
-- B1 implemented 2026-09-29 (commit pending at time of writing): schedule, timer, env guards,
+- B1 implemented 2026-09-29 (`fa6fc6c`), deployed disabled 14:47 KST: schedule, timer, env guards,
   composition; 499 tests passed, lint/typecheck/build passed. Deploy disabled, then enable
   collection only, then (separately approved) the automatic tick.
