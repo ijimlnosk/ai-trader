@@ -3,7 +3,7 @@ import { createRuntimeApp } from './createRuntimeApp.ts';
 import { parseEnvironment } from './environment.ts';
 
 const secrets = ['fixture-key', 'fixture-secret', 'fixture-token', '12345678', 'private-provider-message'];
-const environment = parseEnvironment({ DATABASE_URL: 'postgresql://test:test@localhost/test',
+const environment = parseEnvironment({ CONSOLE_READ_TOKEN: 'r'.repeat(32), DATABASE_URL: 'postgresql://test:test@localhost/test',
   KIS_APP_KEY: secrets[0], KIS_APP_SECRET: secrets[1], KIS_ACCOUNT_NO: secrets[3], KIS_ACCOUNT_PRODUCT_CODE: '01' });
 const database = { checkConnection: async () => {} };
 const input = { symbol: '005930', side: 'BUY', quantity: '1', estimatedPrice: '70000', confidence: '0.82' };
@@ -25,11 +25,11 @@ it.each([
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } });
   try {
-    const portfolio = await app.inject('/api/v1/portfolio');
+    const portfolio = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } });
     expect(portfolio.statusCode).toBe(status);
     expect(portfolio.json().error.code).toBe(errorCode);
     expect(fetcher).toHaveBeenCalledTimes(2); // Token and one balance request, no blind retry.
-    const risk = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const risk = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(risk.statusCode).toBe(503);
     expect(risk.json()).toEqual({ error: { code: 'risk_context_unavailable' } });
     const diagnostics = logs.flatMap((chunk) => chunk.trim().split('\n')).filter((line) => line.includes('"provider":"kis"'));
@@ -51,7 +51,7 @@ it('does not emit rejection diagnostics for a successful portfolio', async () =>
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } });
   try {
-    const response = await app.inject('/api/v1/portfolio');
+    const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ cash: '10000000', totalEvaluation: '10000000', totalPurchaseAmount: '0',
       totalProfitLoss: '0', totalProfitLossRate: '0.00', positions: [] });

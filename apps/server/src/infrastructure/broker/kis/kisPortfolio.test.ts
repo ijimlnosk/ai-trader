@@ -20,7 +20,7 @@ function setup(body: unknown = page) {
   const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token)).mockImplementation(async () => json(body));
   return { fetcher, broker: createKisBroker(config, fetcher) };
 }
-const environment = parseEnvironment({ DATABASE_URL: 'postgresql://test:fixture-db-secret@localhost/test', KIS_APP_KEY: config.appKey, KIS_APP_SECRET: config.appSecret, KIS_ACCOUNT_NO: config.accountNo, KIS_ACCOUNT_PRODUCT_CODE: config.accountProductCode });
+const environment = parseEnvironment({ CONSOLE_READ_TOKEN: 'r'.repeat(32), DATABASE_URL: 'postgresql://test:fixture-db-secret@localhost/test', KIS_APP_KEY: config.appKey, KIS_APP_SECRET: config.appSecret, KIS_ACCOUNT_NO: config.accountNo, KIS_ACCOUNT_PRODUCT_CODE: config.accountProductCode });
 const database = { checkConnection: async () => {} };
 
 it('returns empty positions with actual cash and a defined zero-cost percentage', async () => {
@@ -106,7 +106,7 @@ it('shares token issuance for concurrent quote and portfolio requests', async ()
   vi.stubGlobal('fetch', fetcher);
   const app = createRuntimeApp(environment, database, false);
   try {
-    const responses = await Promise.all([app.inject('/api/v1/portfolio'), app.inject('/api/v1/market/005930/quote')]);
+    const responses = await Promise.all([app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } }), app.inject({ url: '/api/v1/market/005930/quote', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } })]);
     expect(responses.map((response) => response.statusCode)).toEqual([200, 200]);
     expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith('/oauth2/tokenP'))).toHaveLength(1);
   } finally { await app.close(); vi.unstubAllGlobals(); }
@@ -141,7 +141,7 @@ it('returns only internal fields and omits account/secret data from success resp
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } }, broker, broker);
   try {
-    const response = await app.inject('/api/v1/portfolio');
+    const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } });
     expect(response.statusCode).toBe(200);
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.json()).toEqual({ cash: summary.dnca_tot_amt, totalEvaluation: summary.tot_evlu_amt, totalPurchaseAmount: summary.pchs_amt_smtl_amt, totalProfitLoss: summary.evlu_pfls_smtl_amt, totalProfitLossRate: '4.08', positions: [expectedPosition] });
@@ -154,7 +154,7 @@ it.each<[BrokerErrorCode, number]>([
 ])('maps API error %s to %s', async (code, status) => {
   const app = createRuntimeApp(environment, database, false, undefined, { getPortfolio: async () => { throw new BrokerError(code); } });
   try {
-    const response = await app.inject('/api/v1/portfolio');
+    const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } });
     expect(response.statusCode).toBe(status);
     expect(response.json().error.code).toBe(code);
   } finally { await app.close(); }
@@ -165,7 +165,7 @@ it('omits provider failure payloads and request headers from error response/logs
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } }, broker, broker);
   try {
-    const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: token.access_token, appsecret: config.appSecret } });
+    const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}`, appsecret: config.appSecret } });
     expect(response.statusCode).toBe(503);
     for (const secret of [config.accountNo, config.appSecret, token.access_token]) expect(response.body + logs.join('')).not.toContain(secret);
     expect(logs.join('')).toContain('portfolio_request_failed');
@@ -180,7 +180,7 @@ it.each([
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } });
   try {
-    const response = await app.inject('/api/v1/portfolio');
+    const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } });
     expect(response.statusCode).toBe(503);
     for (const secret of [config.accountNo, config.appSecret]) expect(response.body + logs.join('')).not.toContain(secret);
     const diagnostics = logs.flatMap((chunk) => chunk.trim().split('\n')).filter((line) => line.includes('"provider":"kis"'));

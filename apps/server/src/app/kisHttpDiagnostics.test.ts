@@ -4,7 +4,7 @@ import { parseEnvironment } from './environment.ts';
 
 const databaseUrl = 'postgresql://test:fixture-db-secret@localhost/test';
 const secrets = ['12345678', 'fixture-key', 'fixture-secret', 'fixture-token', databaseUrl, 'private-msg1'];
-const environment = parseEnvironment({ DATABASE_URL: databaseUrl, KIS_ACCOUNT_NO: secrets[0],
+const environment = parseEnvironment({ CONSOLE_READ_TOKEN: 'r'.repeat(32), DATABASE_URL: databaseUrl, KIS_ACCOUNT_NO: secrets[0],
   KIS_APP_KEY: secrets[1], KIS_APP_SECRET: secrets[2], KIS_ACCOUNT_PRODUCT_CODE: '01' });
 const database = { checkConnection: async () => {} };
 const input = { symbol: '005930', side: 'BUY', quantity: '1', estimatedPrice: '70000', confidence: '0.82' };
@@ -19,10 +19,10 @@ it.each([400, 401, 403, 429, 500, 503])('records the KIS code from HTTP %s befor
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } });
   try {
-    const portfolio = await app.inject('/api/v1/portfolio');
+    const portfolio = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } });
     expect(portfolio.statusCode).toBe([401, 403].includes(httpStatus) ? 502 : 503);
     expect(portfolio.json().error.code).toBe([401, 403].includes(httpStatus) ? 'authentication_error' : 'provider_unavailable');
-    const risk = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const risk = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(risk.statusCode).toBe(503);
     expect(risk.json()).toEqual({ error: { code: 'risk_context_unavailable' } });
     const events = logs.flatMap((chunk) => chunk.trim().split('\n')).filter((line) => line.includes('"provider":"kis"'));
@@ -41,7 +41,7 @@ it('distinguishes quote rejection from balance rejection without exposing reques
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } });
   try {
-    const response = await app.inject({ url: '/api/v1/market/005930/quote', headers: { authorization: 'fixture-token', appkey: 'fixture-key' } });
+    const response = await app.inject({ url: '/api/v1/market/005930/quote', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}`, appkey: 'fixture-key' } });
     expect(response.statusCode).toBe(503);
     const events = logs.flatMap((chunk) => chunk.trim().split('\n')).filter((line) => line.includes('"provider":"kis"'));
     expect(events).toHaveLength(1);
@@ -57,7 +57,7 @@ it.each([401, 503])('non-JSON HTTP %s failures preserve the existing generic err
   const logs: string[] = [];
   const app = createRuntimeApp(environment, database, { write: (chunk) => { logs.push(chunk); } });
   try {
-    const response = await app.inject('/api/v1/portfolio');
+    const response = await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } });
     expect(response.statusCode).toBe(httpStatus === 401 ? 502 : 503);
     expect(response.json().error.code).toBe(httpStatus === 401 ? 'authentication_error' : 'provider_unavailable');
     expect(logs.join('') + response.body).not.toContain('private-msg1');

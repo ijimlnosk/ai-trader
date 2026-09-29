@@ -1,3 +1,7 @@
+import type { AuthService } from '../application/auth/index.ts';
+import { registerAuthRoutes } from '../interfaces/http/auth.ts';
+import { registerUserConsole } from '../interfaces/http/userConsole.ts';
+import { protectBrokerReads } from '../interfaces/http/readAuthorization.ts';
 import { createPaperLoop } from '../application/paperLoop/index.ts';
 import type { PaperLoopRepository } from '../application/paperLoop/ports.ts';
 import { registerPaperLoopRoute } from '../interfaces/http/paperLoop.ts';
@@ -32,7 +36,7 @@ import { registerConsoleRoutes } from '../interfaces/http/console.ts';
 export function createApp(
   environment: Environment, database: DatabaseHealth,
   dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
-    dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository },
+    dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -50,9 +54,12 @@ export function createApp(
     } : false,
   });
   registerHealthRoute(app, createHealthCheck(database, new PaperBroker()));
-  registerMarketRoutes(app, createMarket(dependencies.marketBroker));
-  registerPortfolioRoute(app, createPortfolioQuery(dependencies.accountBroker));
-  registerRiskRoute(app, createRiskEvaluation(dependencies.riskContextProvider));
+  app.register(async reads => {
+    protectBrokerReads(reads, [environment.CONSOLE_READ_TOKEN, environment.ORDER_API_TOKEN]);
+    registerMarketRoutes(reads, createMarket(dependencies.marketBroker));
+    registerPortfolioRoute(reads, createPortfolioQuery(dependencies.accountBroker));
+    registerRiskRoute(reads, createRiskEvaluation(dependencies.riskContextProvider));
+  });
   const strategy = createStrategyService({
     account: dependencies.accountBroker, risk: dependencies.riskContextProvider, orders: dependencies.orders,
   });
@@ -67,11 +74,16 @@ export function createApp(
   const collect = snapshots && dependencies.dailyHistory ? createDailySnapshotCollector({ history: dependencies.dailyHistory, snapshots }) : undefined;
   const prepare = snapshots ? createPaperLoopPreparer({ snapshots }) : undefined;
   registerMarketDataRoutes(app, { apiToken: environment.ORDER_API_TOKEN, collect, prepare });
-  registerConsoleRoutes(app, dependencies.consoleRead ? createConsoleQueries({ repository: dependencies.consoleRead, flags: {
+  const consoleQueries = dependencies.consoleRead ? createConsoleQueries({ repository: dependencies.consoleRead, flags: {
     tradingMode: environment.BROKER_MODE, liveTradingEnabled: environment.LIVE_TRADING_ENABLED,
     paperExecutionEnabled: environment.PAPER_ORDER_EXECUTION_ENABLED, paperLoopEnabled: environment.PAPER_LOOP_ENABLED,
     killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED, marketDataScheduleEnabled: environment.MARKET_DATA_SCHEDULE_ENABLED,
-    paperLoopScheduleEnabled: environment.PAPER_LOOP_SCHEDULE_ENABLED } }) : undefined, environment.CONSOLE_READ_TOKEN);
+    paperLoopScheduleEnabled: environment.PAPER_LOOP_SCHEDULE_ENABLED } }) : undefined;
+  registerConsoleRoutes(app, consoleQueries, environment.CONSOLE_READ_TOKEN);
+  registerAuthRoutes(app, dependencies.auth, dependencies.executionAccount ?? '');
+  registerUserConsole(app, { auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
+    portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
+    health: createHealthCheck(database, new PaperBroker()) });
   if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED) {
     if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick))) {
       throw new Error('Daily schedule dependencies required');

@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { createRuntimeApp } from './createRuntimeApp.ts';
 import { parseEnvironment } from './environment.ts';
 
-const environment = parseEnvironment({
+const environment = parseEnvironment({ CONSOLE_READ_TOKEN: 'r'.repeat(32),
   DATABASE_URL: 'postgresql://test:test@localhost/test', KIS_APP_KEY: 'fixture-key',
   KIS_APP_SECRET: 'fixture-secret', KIS_ACCOUNT_NO: '12345678', KIS_ACCOUNT_PRODUCT_CODE: '01',
 });
@@ -27,17 +27,17 @@ it('production composition uses the real KIS adapter/provider and shares its tok
   // This is the exact composition function used by server.ts, with no provider/broker override.
   const app = createRuntimeApp(environment, database, false, undefined, undefined, memoryOrders().repository);
   try {
-    const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const response = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ approved: true, approvedQuantity: '1', reasons: [] });
     expect(fetcher).toHaveBeenCalledTimes(2);
-    expect((await app.inject('/api/v1/portfolio')).statusCode).toBe(200);
+    expect((await app.inject({ url: '/api/v1/portfolio', headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` } })).statusCode).toBe(200);
     expect(fetcher).toHaveBeenCalledTimes(3);
     expect(fetcher.mock.calls.filter(([url]) => String(url).endsWith('/oauth2/tokenP'))).toHaveLength(1);
     expect(fetcher.mock.calls[1]?.[1]).toMatchObject({ method: 'GET', headers: { tr_id: 'VTTC8434R' } });
     // A later provider outage must not reuse the successful approval/context.
     fetcher.mockRejectedValueOnce(new Error('fixture-private-secret'));
-    const failed = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const failed = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(failed.statusCode).toBe(503);
     expect(failed.json()).toEqual({ error: { code: 'risk_context_unavailable' } });
     expect(failed.body).not.toContain('fixture-private-secret');
@@ -52,7 +52,7 @@ it.each([
   vi.stubGlobal('fetch', fetcher);
   const app = createRuntimeApp(environment, database, false, undefined, undefined, memoryOrders().repository);
   try {
-    const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const response = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.statusCode).toBe(503);
     expect(response.json()).toEqual({ error: { code: 'risk_context_unavailable' } });
   } finally { await app.close(); }
@@ -71,7 +71,7 @@ it.each([
       positions: (value.positions ?? []).map((p) => ({ ...p, costAmount: '70000' })) }),
   });
   try {
-    const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const response = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(expected);
     expect(getPortfolio).toHaveBeenCalledTimes(1);
@@ -84,12 +84,12 @@ it('production risk wiring uses persistent history and environment kill switch',
   const account = { getPortfolio: vi.fn().mockResolvedValue(portfolio) };
   const app = createRuntimeApp({ ...environment, TRADING_KILL_SWITCH_ENABLED: true }, database, false, undefined, account, repo);
   try {
-    const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const response = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.json()).toMatchObject({ approved: false, reasons: expect.arrayContaining([
       'DAILY_LOSS_LIMIT_EXCEEDED', 'CONSECUTIVE_LOSS_LIMIT_EXCEEDED', 'KILL_SWITCH_ENABLED',
     ]) });
     repo.getTradeLedger = async () => { throw new Error('fixture-private-ledger-secret'); };
-    const failed = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const failed = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(failed.statusCode).toBe(503);
     expect(failed.body).not.toContain('fixture-private-ledger-secret');
   } finally { await app.close(); }
@@ -97,7 +97,7 @@ it('production risk wiring uses persistent history and environment kill switch',
 it('production risk cannot approve without a ledger repository even if execution is disabled', async () => {
   const app = createRuntimeApp(environment, database, false, undefined, { getPortfolio: vi.fn().mockResolvedValue(portfolio) });
   try {
-    const response = await app.inject({ method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
+    const response = await app.inject({ headers: { authorization: `Bearer ${environment.CONSOLE_READ_TOKEN}` }, method: 'POST', url: '/api/v1/risk/evaluate', payload: input });
     expect(response.json()).toMatchObject({ approved: false, reasons: ['INVALID_CONTEXT'] });
   } finally { await app.close(); }
 });

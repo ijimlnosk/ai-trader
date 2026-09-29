@@ -387,12 +387,23 @@ collection and a once-per-session tick in-process behind separate default-off fl
 requires both loop and execution opt-ins. See [decision 0009](decisions/0009-reviewed-krx-calendar-and-daily-snapshots.md)
 and [runbook](PAPER_LOOP.md).
 
-## Read-only web console
+## Authenticated read-only web console
 
-`apps/web` (Next.js App Router, TanStack Query) is a loopback-only operator console. The browser
-calls same-origin `/api/console/<name>`; a Next.js route handler forwards a fixed allow-list of GET
-routes to the API with `CONSOLE_READ_TOKEN`, which authorizes only `GET /api/v1/console/*` and must
-differ from `ORDER_API_TOKEN`. The web container never receives the order token. Shared response
-types live in `packages/contracts` (`console.ts`); ESLint forbids web imports of server code.
-Server-side, `application/console` maps account-scoped repository reads to those contracts. See
-[console runbook](CONSOLE.md).
+`apps/web` (Next.js App Router, TanStack Query) is served through HTTPS ingress. Browser login uses
+same-origin `/api/auth/*` and a host-only Secure/HttpOnly/SameSite=Strict cookie. The BFF forwards
+individual session bearers through an allow-list of GET `/api/v1/me/console/*` endpoints; it holds
+no machine tokens. Server-rendered pages require a valid session; unlinked users see an empty state.
+Shared contracts live in `packages/contracts`; web never imports backend implementation.
+
+`application/auth` owns login/session policy and repository/password-verifier ports. Infrastructure
+uses asynchronous scrypt and PostgreSQL users, hashed opaque sessions and login budgets (migration
+0006). HTTP validates active identity and current execution-account ownership before any console or
+broker read. The runtime has one configured paper broker; only its explicitly bound owner is allowed.
+The existing console repository still filters orders/runs by that account. Market snapshots remain
+shared market data, visible only behind owner authorization. No financial rows are reassigned.
+
+Legacy machine console reads retain their read token; direct portfolio, broker status, quote and
+risk evaluation require the machine read or order token. User sessions never authorize order/tick
+routes. Health remains public. Admin creation/reset/enable/disable/bind/unbind use an SSH-only CLI;
+all updates revoke sessions under the user lock. There is no public signup/default owner.
+See [decision 0010](decisions/0010-console-login-account-ownership.md) and [console runbook](CONSOLE.md).

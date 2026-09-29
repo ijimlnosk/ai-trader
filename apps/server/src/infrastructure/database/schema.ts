@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, check, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import type { CreateOrderRequest, ExecutionStatus } from '@ai-trader/contracts';
 import type { OrderAudit } from '../../domain/orders.ts';
 
@@ -187,3 +187,28 @@ export const marketDailySnapshots = pgTable('market_daily_snapshots', {
   check('market_daily_snapshot_through', sql`${t.through} ~ '^[0-9]{8}$'`),
   check('market_daily_snapshot_sha256', sql`${t.rawSha256} ~ '^[0-9a-f]{64}$' AND ${t.datasetSha256} ~ '^[0-9a-f]{64}$' AND ${t.candlesSha256} ~ '^[0-9a-f]{64}$'`),
 ]);
+
+
+/** Local console identities; account ownership is explicit and never inferred from login. */
+export const consoleUsers = pgTable('console_users', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  email: text('email').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  executionAccount: text('execution_account'),
+  disabled: boolean('disabled').notNull().default(false),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [uniqueIndex('console_users_email_idx').on(t.email),
+  uniqueIndex('console_users_account_idx').on(t.executionAccount)]);
+
+export const consoleSessions = pgTable('console_sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => consoleUsers.id, { onDelete: 'cascade' }),
+  expiresAt: instant('expires_at').notNull(),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [index('console_sessions_user_idx').on(t.userId)]);
+
+export const consoleLoginAttempts = pgTable('console_login_attempts', {
+  key: text('key').primaryKey(),
+  attempts: integer('attempts').notNull(),
+  resetsAt: instant('resets_at').notNull(),
+});

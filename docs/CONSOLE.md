@@ -1,39 +1,78 @@
-# Read-only operator console
+# Authenticated read-only console
 
-`apps/web` shows paper safety state, portfolio, paper-loop runs, orders and daily snapshots. It has
-no order, tick, collection or configuration control.
+`https://trader.jjinsol.com` shows the logged-in owner's paper safety state, portfolio, loop runs,
+orders and daily snapshots. `https://trader-api.jjinsol.com` is the API ingress. Containers still
+bind to host loopback, behind the HTTPS ingress. No order, tick or configuration controls exist in UI.
 
-## Access
+## Login and ownership
 
-The console and API bind to loopback on the host (`127.0.0.1:3201` console, `127.0.0.1:3200` API).
-Use an SSH tunnel and open `http://localhost:3201/`:
+Administrator-created email/password accounts only; no public signup or default password.
+Passwords are 15–128 characters, salted scrypt hashes. Sessions expire after eight hours and are
+revoked on logout, password reset, enable/disable or account binding changes. Account ownership is
+unique and explicit. New users are unlinked by default and see an empty account-connect notice.
+The current runtime supports one configured KIS paper account; adding users does not add brokers.
+No historic orders are reassigned. An owner sees only records already scoped to that account.
+
+From the repository on an administrator's computer (SSH access required):
 
 ```sh
-ssh -N -L 3201:127.0.0.1:3201 sol-server
+python3 scripts/console-user.py create --bind-configured-account
 ```
 
-Do not publish either port. There is no login in v1; the tunnel is the access boundary.
+Enter the owner email and password at the prompts. Password input is hidden and passed only over
+SSH stdin, not command arguments/history. Do not paste it into chat or commit credential files.
+Omit `--bind-configured-account` to create an unlinked user. Other administrative operations:
 
-## Tokens
+```sh
+python3 scripts/console-user.py reset-password
+python3 scripts/console-user.py disable
+python3 scripts/console-user.py enable
+python3 scripts/console-user.py unbind
+python3 scripts/console-user.py bind
+```
 
-- `CONSOLE_READ_TOKEN` (32+ characters, must differ from `ORDER_API_TOKEN`) authorizes only
-  `GET /api/v1/console/{status,orders,loop-runs,snapshots}`. It cannot place orders, tick or collect.
-- The `web` container receives `CONSOLE_READ_TOKEN` and `CONSOLE_API_URL=http://server:3000`; it
-  never receives `ORDER_API_TOKEN`. The browser calls same-origin `/api/console/<name>`; the
-  Next.js server forwards an allow-list of GET routes and only the `limit` parameter.
-- Rotate by replacing the value in the server `.env` and recreating both `server` and `web`.
+Binding refuses to take an account already owned by another user; first explicitly unbind its
+current owner. Password reset preserves disabled status. There is no email reset service or MFA
+in this version. The server CLI (`pnpm --filter server auth:user`, after build) accepts the same
+strict JSON actions on stdin for other deployments. It never prints passwords or hashes.
+
+## Boundaries and configuration
+
+- Browser login/logout use same-origin `/api/auth/*`. Set web `CONSOLE_PUBLIC_ORIGIN` to its exact
+  externally visible origin; POST requests without that Origin are rejected. Compose defaults to
+  `https://trader.jjinsol.com`. For local dev use `http://localhost:3100` and pass environment to Next.
+- The web server holds the individual session in a production `__Host-trader_session` cookie:
+  Secure, HttpOnly, SameSite=Strict, Path=/, no Domain. Dev HTTP uses `trader_session`.
+- Web `CONSOLE_API_URL=http://server:3000`; web has neither machine read nor order token.
+  `/api/console/<name>` forwards only allow-listed GETs using the current session bearer.
+- Backend `/api/v1/auth/{login,me,logout}` manages sessions; `/api/v1/me/console/*` verifies both
+  the active session and current ownership on every request. Anonymous = 401, unlinked/other account = 403.
+  No URL, query or browser header selects an execution account. Responses are no-store.
+- Operator-only legacy `/api/v1/console/*` uses `CONSOLE_READ_TOKEN` (32+ chars, distinct from order
+  token). Direct `/api/v1/portfolio`, `/api/v1/broker/status`, `/api/v1/market/:symbol/quote` and
+  `/api/v1/risk/evaluate` now require a machine read or order token. Health remains public.
+- User sessions cannot authorize order, strategy execution, tick or collection APIs.
+- Login budgets are persisted atomically (5/email/15 min, 40/global/min), including wrong passwords
+  and unknown emails. At most two scrypt checks run concurrently in one process. Rate-limited
+  users wait 15 minutes; there is no automatic retry that could produce additional sessions.
 
 ## Reading the screen
 
-- Green `PAPER 모의투자` banner: paper mode and live disabled. Red `LIVE` means live mode or the live
-  opt-in is set. Amber `모드 확인 불가` means status could not be read; treat it as unverified.
-- Order-capable switches (paper execution, loop, automatic tick) are highlighted when ON.
-- A panel whose refresh fails keeps its last data with a warning and its last update time.
-- Times are Asia/Seoul; amounts KRW; quantities shares. Deposit cash is not buying power; portfolio
-  profit/loss is unrealized and differs from ledger realized P/L.
+Green PAPER means paper and live disabled. Amber unknown mode means unverified. Order-capable
+switches are highlighted when on. Panel refresh failures keep last data with warning/time; auth
+failures navigate away. Logout clears query cache and the next login loads a fresh document.
+Times are Asia/Seoul, amounts KRW and quantities shares. Deposit cash is not buying power;
+portfolio P/L is unrealized and differs from the execution ledger's realized P/L.
 
-## Deployment
+## Deployment and rollback
 
-The `web` service builds from `apps/web/Dockerfile` (Next.js standalone). Deploy with
-`docker compose -p <project> build web` and `up -d --no-deps web` after the server exposes the
-console endpoints. Rollback: stop `web`; the API endpoints stay token-protected and read-only.
+Back up DB and source/config first. Build `server` and `web`; explicitly apply migration 0006 with
+`docker compose -p ai-trader-app run --rm --no-deps server node dist/infrastructure/database/migrate.js`,
+then recreate both services. Migration only adds users, sessions and login-attempt tables; it does
+not update financial rows or create an owner. Preserve trading flags and existing database volume.
+Check `/` redirects to `/login`, unsigned web/API data reads are rejected, owner reads succeed,
+unlinked users are denied, and logout invalidates replay. Provision the owner using the command above.
+
+For rollback, stop public web/API ingress before reverting to a pre-auth build: that version exposes
+anonymous data. Keep the additive auth tables for a forward fix; do not drop financial tables or
+restore an old financial snapshot over new trades. Web build rollback alone is unsafe.

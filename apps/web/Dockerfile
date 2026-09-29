@@ -9,7 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter @ai-trader/contracts build && pnpm --filter @ai-trader/web build
 
 FROM node:24-alpine AS runtime
-# CONSOLE_API_URL and CONSOLE_READ_TOKEN are supplied at runtime; never baked into the image.
+# CONSOLE_API_URL and CONSOLE_PUBLIC_ORIGIN are supplied at runtime; never baked into the image.
 ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000 NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 COPY --from=build --chown=node:node /workspace/apps/web/.next/standalone ./

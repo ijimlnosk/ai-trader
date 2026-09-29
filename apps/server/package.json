@@ -14,7 +14,8 @@
     "start": "node --env-file-if-exists=../../.env dist/app/server.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file-if-exists=../../.env dist/infrastructure/database/migrate.js",
-    "backtest": "node --experimental-strip-types src/app/backtest.ts"
+    "backtest": "node --experimental-strip-types src/app/backtest.ts",
+    "auth:user": "node --env-file-if-exists=../../.env dist/app/consoleUser.js"
   },
   "dependencies": {
     "@ai-trader/contracts": "workspace:*",

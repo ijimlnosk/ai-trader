@@ -49,7 +49,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-  # Read-only console; loopback only. Holds the read token server-side, never the order token.
+  # Authenticated console; forwards individual sessions, never a machine token.
   web:
     build:
       context: .
@@ -58,7 +58,7 @@ services:
     init: true
     environment:
       CONSOLE_API_URL: http://server:3000
-      CONSOLE_READ_TOKEN: ${CONSOLE_READ_TOKEN:-}
+      CONSOLE_PUBLIC_ORIGIN: ${CONSOLE_PUBLIC_ORIGIN:-https://trader.jjinsol.com}
     ports:
       - "127.0.0.1:3201:3000"
     depends_on:

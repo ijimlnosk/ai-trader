@@ -42,7 +42,7 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
       SELECT id,'005930','BUY',2,70000,'KRW','historical-account','987','20260915','FILLED',2,140000,now() FROM p`);
     const ledgerMigration = await readFile(new URL('../../../drizzle/0002_lean_black_panther.sql', import.meta.url), 'utf8');
     await database.db.execute(sql.raw(ledgerMigration));
-    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots']) {
+    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth']) {
       await database.db.execute(sql.raw(await readFile(new URL(`../../../drizzle/${name}.sql`, import.meta.url), 'utf8')));
     }
   });

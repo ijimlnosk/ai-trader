@@ -52,3 +52,4 @@ export { RiskRejection, type RiskRejectionReason, type RiskDecision, type RiskEv
 export type { CreateOrderRequest, ExecutionStatus, OrderResponse } from './orders.js';
 export type { StrategyProvenance, DailyCandle, MarketDataset, StrategyEvaluateRequest } from './strategy.js';
 export type { ConsoleStatusResponse, ConsoleLoopStatus, ConsoleLoopRun, ConsoleSnapshot, ConsoleList } from './console.js';
+export type { ConsoleUser, ConsoleSessionResponse } from './auth.js';
