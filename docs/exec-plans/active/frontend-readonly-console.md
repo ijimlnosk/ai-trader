@@ -1,35 +1,57 @@
-# Frontend read-only console
+# Goal
 
-## Current state
+A private, read-only paper operator console (`apps/web`) that shows safety state, portfolio,
+daily snapshots, paper-loop runs and orders, so daily automatic ticks can be reviewed. No order,
+tick, collection or configuration action exists in the console.
 
-There is no `apps/web` package yet. The server and shared contracts are the current product surface.
-The first frontend should be a paper-mode operator console; it must not contain broker credentials or
-call an order API directly.
+# Constraints
 
-## Recommended scope
+- Browser code holds no secrets and never calls the broker or order-capable endpoints.
+- `ORDER_API_TOKEN` authorizes orders; the console must not use it. A separate
+  `CONSOLE_READ_TOKEN` (≥32 chars, different from the order token) authorizes read endpoints only.
+- The token lives only in the Next.js server runtime (route handlers proxy a fixed allow-list of
+  GET paths). The browser talks to same-origin `/api/console/*` without credentials.
+- The console, like the API, binds to loopback and is reached through an SSH tunnel; no public
+  ingress or login system in v1.
+- Paper vs live must be visually unambiguous. Money/quantities remain exact strings.
+- Next.js App Router, TanStack Query for server state; Zustand only for genuine client state.
 
-1. **Safety banner** — health, database connectivity, broker provider, paper/live mode, execution flag,
-   and kill-switch state. Live mode must be visually impossible to confuse with paper mode.
-2. **Portfolio view** — cash, total evaluation, positions, available quantity, average price, and
-   unrealized P/L from `GET /api/v1/portfolio`.
-3. **Market view** — read-only quotes with receipt time and stale-data state.
-4. **Strategy dry-run view** — upload/select a validated dataset, provide an explicit session date and
-   run key, call `POST /api/v1/strategy/schedule`, and show each proposal, risk decision, and reason.
-   The form must not expose an execution-symbol or order-submit action.
-5. **Run audit view** — add a protected server read endpoint for persisted `strategy_runs`, then show
-   run key, session date, data hash, created time, and replay status.
-6. **Order and ledger history** — read-only order status, fills, executions, and positions-synced state.
+# Current State
 
-## Deferred
+- Unauthenticated loopback reads exist: `/health`, `/api/v1/portfolio`, `/api/v1/market/:symbol/quote`,
+  `/api/v1/broker/status`. `GET /api/v1/orders/:id` requires the order token.
+- No list endpoints for orders, loop runs or snapshots; no runtime-flag status endpoint.
+- No `apps/web` package.
 
-- No BUY/SELL button before Phase 7 and explicit paper-only execution UX review.
-- No AI prompt or broker credential controls in browser code.
-- No automatic polling loop until server-side session scheduling is proven.
+# Plan
 
-## Proposed implementation order
+- [x] 1. Contracts: console status, order list, loop-run summary, snapshot summary responses.
+- [x] 2. Server: `CONSOLE_READ_TOKEN` env (optional; distinct from order token); read-only
+      `GET /api/v1/console/{status,orders,loop-runs,snapshots}` with bounded `limit`; repository
+      list queries (account-scoped for orders/runs); tests.
+- [ ] 3. Scaffold `apps/web` (Next.js, TanStack Query), lint/typecheck/build wired into repo gates.
+- [ ] 4. Server-side proxy route with fixed GET allow-list and timeout; tests.
+- [ ] 5. Panels: safety banner, portfolio, snapshots, loop runs, orders. Stale/error states.
+- [ ] 6. Deploy (loopback-only), SSH-tunnel access check, document.
 
-1. Add shared response schemas/types for strategy runs and audit summaries.
-2. Add `GET /api/v1/strategy/runs` with account-scoped pagination and no raw dataset payload.
-3. Scaffold `apps/web` with TanStack Query and a paper-mode shell.
-4. Build safety banner, portfolio, and run audit panels.
-5. Add the dry-run dataset workflow and integration tests.
+# Decisions
+
+- Separate read token instead of reusing the order token (least privilege; a leaked console
+  token cannot place orders). Status endpoint exposes flags, never secrets or account numbers.
+- BFF proxy with allow-list instead of CORS to the API, so the token never reaches the browser.
+
+# Progress
+
+2026-09-29: plan rewritten for implementation after Phase 7 and the data pipeline.
+2026-09-29: steps 1–2 done. `GET /api/v1/console/{status,orders,loop-runs,snapshots}`, limit 1–100
+(default 20), read token required, 503 `console_disabled` without it. 512 tests passed; DB suite
+15/15 on a disposable PostgreSQL.
+
+# Validation
+
+Server unit/route tests; web typecheck/lint/build; proxy tests for allow-list, missing token and
+upstream errors; manual check through the tunnel. Repository gates must include `apps/web`.
+
+# Remaining Work
+
+All steps.

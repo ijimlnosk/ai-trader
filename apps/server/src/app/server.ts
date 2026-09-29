@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { createOrderRepository } from '../infrastructure/database/orderRepository.ts';
 import { createStrategyRunRepository } from '../infrastructure/database/strategyRunRepository.ts';
 import { createDailySnapshotRepository } from '../infrastructure/database/dailySnapshotRepository.ts';
+import { createConsoleReadRepository } from '../infrastructure/database/consoleReadRepository.ts';
 
 async function start() {
   const environment = parseEnvironment(process.env);
@@ -13,7 +14,7 @@ async function start() {
   const database = createDatabase(environment.DATABASE_URL);
   const executionAccount = createHash('sha256').update(`paper:${environment.KIS_ACCOUNT_NO ?? ''}:${environment.KIS_ACCOUNT_PRODUCT_CODE ?? ''}`).digest('hex');
   const app = createRuntimeApp(environment, database, true, undefined, undefined, createOrderRepository(database.db, executionAccount), createStrategyRunRepository(database.db, executionAccount), createPaperLoopRepository(database.db, executionAccount),
-    createDailySnapshotRepository(database.db));
+    createDailySnapshotRepository(database.db), createConsoleReadRepository(database.db, executionAccount));
   app.addHook('onClose', () => database.close());
   let stopping = false;
   const shutdown = async () => {

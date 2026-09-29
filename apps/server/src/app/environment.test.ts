@@ -45,3 +45,11 @@ it('daily schedules default off and the automatic tick needs every execution opt
   expect(() => parseEnvironment({ ...full, PAPER_LOOP_TASK_FILE: '/app/task.json' })).toThrow('PAPER_LOOP_SCHEDULE_ENABLED');
   expect(parseEnvironment(full)).toMatchObject({ PAPER_LOOP_SCHEDULE_ENABLED: true, LIVE_TRADING_ENABLED: false });
 });
+
+it('console read token must be strong and distinct from the order token', () => {
+  expect(parseEnvironment(base).CONSOLE_READ_TOKEN).toBeUndefined();
+  expect(() => parseEnvironment({ ...base, CONSOLE_READ_TOKEN: 'short' })).toThrow('CONSOLE_READ_TOKEN');
+  expect(() => parseEnvironment({ ...base, CONSOLE_READ_TOKEN: 'x'.repeat(32), ORDER_API_TOKEN: 'x'.repeat(32) })).toThrow('CONSOLE_READ_TOKEN');
+  expect(parseEnvironment({ ...base, CONSOLE_READ_TOKEN: 'r'.repeat(32), ORDER_API_TOKEN: 'x'.repeat(32) }))
+    .toMatchObject({ CONSOLE_READ_TOKEN: 'r'.repeat(32) });
+});

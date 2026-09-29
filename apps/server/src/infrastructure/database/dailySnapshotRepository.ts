@@ -11,7 +11,7 @@ type Database = ReturnType<typeof createDatabase>['db'];
  * jsonb does not preserve key order, so the dataset is re-parsed into schema order and its digest
  * rechecked. A stored dataset that no longer matches its digest is never returned as usable data.
  */
-function mapSnapshot(row: typeof snapshots.$inferSelect): DailySnapshot {
+export function mapSnapshot(row: typeof snapshots.$inferSelect): DailySnapshot {
   const dataset = datasetSchema.parse(row.dataset);
   if (createHash('sha256').update(JSON.stringify(dataset)).digest('hex') !== row.datasetSha256) {
     throw new Error('Stored market snapshot digest mismatch');

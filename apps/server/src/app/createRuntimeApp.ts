@@ -10,6 +10,7 @@ import { createOrderServices } from '../application/orders/index.ts';
 import type { OrderRepository } from '../application/orders/ports.ts';
 import type { StrategyRunRepository } from '../application/scheduler/index.ts';
 import type { DailySnapshotRepository } from '../application/marketData/ports.ts';
+import type { ConsoleReadRepository } from '../application/console/index.ts';
 
 /** Production composition; optional broker ports allow the same wiring to run without networking in tests. */
 export function createRuntimeApp(
@@ -17,7 +18,7 @@ export function createRuntimeApp(
   logger: boolean | { write(chunk: string): void } = true,
   marketBroker?: MarketBroker, accountBroker?: AccountBroker,
   orderRepository?: OrderRepository, strategyRunRepository?: StrategyRunRepository, paperLoopRepository?: PaperLoopRepository,
-  dailySnapshotRepository?: DailySnapshotRepository,
+  dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
@@ -38,6 +39,7 @@ export function createRuntimeApp(
     ...(paperLoopRepository ? { paperLoopRuns: paperLoopRepository } : {}),
     ...(strategyRunRepository ? { strategyRuns: strategyRunRepository } : {}),
     ...(dailySnapshotRepository ? { dailySnapshots: dailySnapshotRepository, dailyHistory: broker } : {}),
+    ...(consoleReadRepository ? { consoleRead: consoleReadRepository } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,
   }, logger);

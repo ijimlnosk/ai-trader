@@ -24,10 +24,15 @@ const schema = z.object({
   MARKET_DATA_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   PAPER_LOOP_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   ORDER_API_TOKEN: optionalSecret,
+  CONSOLE_READ_TOKEN: optionalSecret,
   TRADING_KILL_SWITCH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((value, ctx) => {
   if ((value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_ENABLED) && (!value.ORDER_API_TOKEN || value.ORDER_API_TOKEN.length < 32)) {
     ctx.addIssue({ code: 'custom', path: ['ORDER_API_TOKEN'], message: 'At least 32 characters required for execution' });
+  }
+  // A read token must not double as the order token, so leaking it cannot authorize orders.
+  if (value.CONSOLE_READ_TOKEN && (value.CONSOLE_READ_TOKEN.length < 32 || value.CONSOLE_READ_TOKEN === value.ORDER_API_TOKEN)) {
+    ctx.addIssue({ code: 'custom', path: ['CONSOLE_READ_TOKEN'], message: 'At least 32 characters and distinct from ORDER_API_TOKEN' });
   }
   // The automatic tick is a third deliberate opt-in on top of both loop and execution opt-ins.
   if (value.PAPER_LOOP_SCHEDULE_ENABLED && (!value.PAPER_LOOP_ENABLED || !value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_TASK_FILE)) {

@@ -6,7 +6,7 @@ import { paperLoopRuns as runs, orders } from './schema.ts';
 import { mapStoredOrder } from './orderMapping.ts';
 
 type Database = ReturnType<typeof createDatabase>['db'];
-function mapRun(row: typeof runs.$inferSelect): PaperLoopRun {
+export function mapRun(row: typeof runs.$inferSelect): PaperLoopRun {
   return { id: row.id, input: row.input, orderKey: row.orderKey, status: row.status, result: row.result,
     order: row.order, reason: row.reason, deadline: row.deadline.toISOString(), version: row.version,
     createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };

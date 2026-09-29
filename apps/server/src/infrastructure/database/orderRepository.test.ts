@@ -1,5 +1,6 @@
 import { createPaperLoopRepository } from './paperLoopRepository.ts';
 import { createDailySnapshotRepository } from './dailySnapshotRepository.ts';
+import { createConsoleReadRepository } from './consoleReadRepository.ts';
 import { createDailySnapshotCollector } from '../../application/marketData/collect.ts';
 import { createPaperLoopPreparer } from '../../application/paperLoop/prepare.ts';
 import { bar, stubHistory } from '../../../test/marketDataFixtures.ts';
@@ -61,6 +62,18 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     const prepared = await createPaperLoopPreparer({ snapshots: createDailySnapshotRepository(database.db),
       now: () => new Date('2026-09-29T00:05:00.000Z') })();
     expect(prepared.status).toBe('ready');
+  });
+  it('console reads are newest-first, bounded and scoped to the execution account', async () => {
+    const scope = randomUUID(); const repo = createOrderRepository(database.db, scope);
+    const first = await repo.reserve(randomUUID(), input); await repo.update(first.order, { brokerStatus: 'FAILED' });
+    await repo.reserve(randomUUID(), { ...input, quantity: '2' });
+    await createOrderRepository(database.db, randomUUID()).reserve(randomUUID(), input);
+    const console = createConsoleReadRepository(database.db, scope);
+    const listed = await console.listOrders(10);
+    expect(listed.map((order) => order.quantity)).toEqual(['2', input.quantity]);
+    expect(await console.listOrders(1)).toHaveLength(1);
+    expect(await createConsoleReadRepository(database.db, randomUUID()).listLoopRuns(10)).toEqual([]);
+    expect((await console.listSnapshots(2)).length).toBeGreaterThan(0);
   });
   it('preserves existing rows after expansion', async () => {
     const legacy = await database.db.select().from(orders).where(isNull(orders.executionAccount));

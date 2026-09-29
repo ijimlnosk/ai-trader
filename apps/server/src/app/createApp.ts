@@ -26,11 +26,13 @@ import { createPaperLoopPreparer } from '../application/paperLoop/prepare.ts';
 import { registerMarketDataRoutes } from '../interfaces/http/marketData.ts';
 import { createDailySchedule } from '../application/paperLoop/dailySchedule.ts';
 import { startDailyScheduleTimer } from './dailyScheduleTimer.ts';
+import { createConsoleQueries, type ConsoleReadRepository } from '../application/console/index.ts';
+import { registerConsoleRoutes } from '../interfaces/http/console.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
   dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
-    dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository },
+    dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -65,6 +67,11 @@ export function createApp(
   const collect = snapshots && dependencies.dailyHistory ? createDailySnapshotCollector({ history: dependencies.dailyHistory, snapshots }) : undefined;
   const prepare = snapshots ? createPaperLoopPreparer({ snapshots }) : undefined;
   registerMarketDataRoutes(app, { apiToken: environment.ORDER_API_TOKEN, collect, prepare });
+  registerConsoleRoutes(app, dependencies.consoleRead ? createConsoleQueries({ repository: dependencies.consoleRead, flags: {
+    tradingMode: environment.BROKER_MODE, liveTradingEnabled: environment.LIVE_TRADING_ENABLED,
+    paperExecutionEnabled: environment.PAPER_ORDER_EXECUTION_ENABLED, paperLoopEnabled: environment.PAPER_LOOP_ENABLED,
+    killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED, marketDataScheduleEnabled: environment.MARKET_DATA_SCHEDULE_ENABLED,
+    paperLoopScheduleEnabled: environment.PAPER_LOOP_SCHEDULE_ENABLED } }) : undefined, environment.CONSOLE_READ_TOKEN);
   if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED) {
     if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick))) {
       throw new Error('Daily schedule dependencies required');
