@@ -109,3 +109,20 @@ During the next session, `GET /api/v1/strategy/paper-loop/prepared` returns
 Both endpoints are order-free and work with every opt-in off. Review `revisedDates` in collection
 results; a revised bar is archived as a new snapshot, never merged silently. See
 [decision 0009](decisions/0009-reviewed-krx-calendar-and-daily-snapshots.md).
+
+## Daily schedule (default off)
+
+`MARKET_DATA_SCHEDULE_ENABLED=true` runs order-free collection in the server process: on a reviewed
+session after 18:30 KST, at most three attempts ten minutes apart, then the day is skipped.
+
+`PAPER_LOOP_SCHEDULE_ENABLED=true` additionally ticks automatically. It is refused at startup unless
+`PAPER_LOOP_ENABLED` and `PAPER_ORDER_EXECUTION_ENABLED` are true and no `PAPER_LOOP_TASK_FILE` is
+set. On each reviewed session, once between 09:05 and 15:00 KST, it prepares the input from the
+previous session's snapshot and ticks; while `TRACKING` it repeats the same input every 30 seconds.
+A skipped preparation or `loop_context_unavailable` skips the day. `HALTED`, `CLAIMED` or any other
+error stops automatic ticks until the server restarts after operator review. There is no catch-up.
+
+Schedule state is in memory. After a restart the same day's collection returns `unchanged` and a
+repeated tick replays the durable claim, so neither can duplicate work. Events are logged as
+`Daily schedule` with `event` codes (`market_snapshot_*`, `paper_loop_*`). The base Compose file
+passes both flags with default `false`; a server-specific Compose file must also pass them.

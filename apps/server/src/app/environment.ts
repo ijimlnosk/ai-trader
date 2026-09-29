@@ -21,11 +21,17 @@ const schema = z.object({
   PAPER_ORDER_EXECUTION_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   PAPER_LOOP_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   PAPER_LOOP_TASK_FILE: z.string().trim().min(1).optional(),
+  MARKET_DATA_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  PAPER_LOOP_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   ORDER_API_TOKEN: optionalSecret,
   TRADING_KILL_SWITCH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((value, ctx) => {
   if ((value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_ENABLED) && (!value.ORDER_API_TOKEN || value.ORDER_API_TOKEN.length < 32)) {
     ctx.addIssue({ code: 'custom', path: ['ORDER_API_TOKEN'], message: 'At least 32 characters required for execution' });
+  }
+  // The automatic tick is a third deliberate opt-in on top of both loop and execution opt-ins.
+  if (value.PAPER_LOOP_SCHEDULE_ENABLED && (!value.PAPER_LOOP_ENABLED || !value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_TASK_FILE)) {
+    ctx.addIssue({ code: 'custom', path: ['PAPER_LOOP_SCHEDULE_ENABLED'], message: 'Requires loop and execution opt-ins and no task file' });
   }
 });
 

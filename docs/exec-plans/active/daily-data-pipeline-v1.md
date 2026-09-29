@@ -55,7 +55,7 @@ Phase A — order-free (deployable with execution off)
 
 Phase B — scheduling (separate approval before enabling)
 
-- [ ] B1. Same-process daily timer: collect after close; at session open prepare then tick via the
+- [x] B1. Same-process daily timer: collect after close; at session open prepare then tick via the
       existing trigger semantics. Default off, no catch-up, stops on HALTED/exception.
 - [ ] B2. Deploy disabled, run A-phase collection/preview for at least two sessions, then a
       bounded enabled session. Record evidence.
@@ -87,6 +87,11 @@ JSONB digest round trip and snapshot → prepared input).
   HALTED claim blocking all later ticks. Regression test added.
 - Collection waits until 18:30 KST because KIS daily volume includes after-hours trading.
 
+- Phase B uses two flags: `MARKET_DATA_SCHEDULE_ENABLED` (order-free) and
+  `PAPER_LOOP_SCHEDULE_ENABLED` (requires loop + execution opt-ins, no task file). Collection
+  retries at most 3 times, 10 minutes apart. Ticks once per session 09:05–15:00 KST; a pre-claim
+  admission refusal skips the day, any other failure halts ticks until restart. No catch-up.
+
 # Validation
 
 Per step: unit tests for calendar/mapping/revision/skip reasons; disposable-DB tests for the
@@ -100,3 +105,6 @@ the operator-built digest for the same data.
   input matched the independent Phase 5 dataset. See [deployment](../../DATA_PIPELINE_DEPLOY_2026-09-29.md).
 - After 18:30 KST 9/29: collect through 9/29 and compare with a manual pull; on 9/30 confirm the
   prepared input. Then Phase B (needs separate approval before enabling).
+- B1 implemented 2026-09-29 (commit pending at time of writing): schedule, timer, env guards,
+  composition; 499 tests passed, lint/typecheck/build passed. Deploy disabled, then enable
+  collection only, then (separately approved) the automatic tick.

@@ -382,4 +382,7 @@ next-weekday rule is replaced). `application/marketData` owns a provider-neutral
 re-parses JSONB datasets into schema order and rechecks their digest. `application/paperLoop/prepare`
 builds a tick input from the previous session's snapshot. Authenticated, order-free endpoints
 `POST /api/v1/market/daily-snapshots/collect` and `GET /api/v1/strategy/paper-loop/prepared` expose
-them; nothing is scheduled automatically. See [decision 0009](decisions/0009-reviewed-krx-calendar-and-daily-snapshots.md).
+them. `application/paperLoop/dailySchedule` (driven by `app/dailyScheduleTimer`) optionally runs
+collection and a once-per-session tick in-process behind separate default-off flags; the tick flag
+requires both loop and execution opt-ins. See [decision 0009](decisions/0009-reviewed-krx-calendar-and-daily-snapshots.md)
+and [runbook](PAPER_LOOP.md).

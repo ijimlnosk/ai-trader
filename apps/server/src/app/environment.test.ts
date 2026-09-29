@@ -32,3 +32,16 @@ it('loop opt-in requires strong authentication but never implicitly enables orde
   expect(parseEnvironment({ ...base, PAPER_LOOP_ENABLED: 'true', ORDER_API_TOKEN: 'x'.repeat(32) }))
     .toMatchObject({ PAPER_LOOP_ENABLED: true, PAPER_ORDER_EXECUTION_ENABLED: false, LIVE_TRADING_ENABLED: false });
 });
+
+it('daily schedules default off and the automatic tick needs every execution opt-in', () => {
+  expect(parseEnvironment(base)).toMatchObject({ MARKET_DATA_SCHEDULE_ENABLED: false, PAPER_LOOP_SCHEDULE_ENABLED: false });
+  expect(parseEnvironment({ ...base, MARKET_DATA_SCHEDULE_ENABLED: 'true' }))
+    .toMatchObject({ MARKET_DATA_SCHEDULE_ENABLED: true, PAPER_LOOP_ENABLED: false, PAPER_ORDER_EXECUTION_ENABLED: false });
+  const armed = { ...base, ORDER_API_TOKEN: 'x'.repeat(32), PAPER_LOOP_SCHEDULE_ENABLED: 'true' };
+  expect(() => parseEnvironment(armed)).toThrow('PAPER_LOOP_SCHEDULE_ENABLED');
+  expect(() => parseEnvironment({ ...armed, PAPER_LOOP_ENABLED: 'true' })).toThrow('PAPER_LOOP_SCHEDULE_ENABLED');
+  expect(() => parseEnvironment({ ...armed, PAPER_ORDER_EXECUTION_ENABLED: 'true' })).toThrow('PAPER_LOOP_SCHEDULE_ENABLED');
+  const full = { ...armed, PAPER_LOOP_ENABLED: 'true', PAPER_ORDER_EXECUTION_ENABLED: 'true' };
+  expect(() => parseEnvironment({ ...full, PAPER_LOOP_TASK_FILE: '/app/task.json' })).toThrow('PAPER_LOOP_SCHEDULE_ENABLED');
+  expect(parseEnvironment(full)).toMatchObject({ PAPER_LOOP_SCHEDULE_ENABLED: true, LIVE_TRADING_ENABLED: false });
+});

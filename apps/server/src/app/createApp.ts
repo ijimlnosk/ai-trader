@@ -24,6 +24,8 @@ import type { DailyHistorySource, DailySnapshotRepository } from '../application
 import { createDailySnapshotCollector } from '../application/marketData/collect.ts';
 import { createPaperLoopPreparer } from '../application/paperLoop/prepare.ts';
 import { registerMarketDataRoutes } from '../interfaces/http/marketData.ts';
+import { createDailySchedule } from '../application/paperLoop/dailySchedule.ts';
+import { startDailyScheduleTimer } from './dailyScheduleTimer.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -60,9 +62,21 @@ export function createApp(
   }) : undefined;
   registerPaperLoopRoute(app, tick, environment.ORDER_API_TOKEN);
   const snapshots = dependencies.dailySnapshots;
-  registerMarketDataRoutes(app, { apiToken: environment.ORDER_API_TOKEN,
-    collect: snapshots && dependencies.dailyHistory ? createDailySnapshotCollector({ history: dependencies.dailyHistory, snapshots }) : undefined,
-    prepare: snapshots ? createPaperLoopPreparer({ snapshots }) : undefined });
+  const collect = snapshots && dependencies.dailyHistory ? createDailySnapshotCollector({ history: dependencies.dailyHistory, snapshots }) : undefined;
+  const prepare = snapshots ? createPaperLoopPreparer({ snapshots }) : undefined;
+  registerMarketDataRoutes(app, { apiToken: environment.ORDER_API_TOKEN, collect, prepare });
+  if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED) {
+    if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick))) {
+      throw new Error('Daily schedule dependencies required');
+    }
+    const report = (event: string, detail?: Record<string, string>) => app.log.info({ event, ...detail }, 'Daily schedule');
+    const step = createDailySchedule({ report,
+      collect: environment.MARKET_DATA_SCHEDULE_ENABLED ? collect : undefined,
+      loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick ? { prepare, tick } : undefined });
+    let stop: (() => Promise<void>) | undefined;
+    app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });
+    app.addHook('preClose', async () => { await stop?.(); });
+  }
   if (environment.PAPER_LOOP_ENABLED && environment.PAPER_LOOP_TASK_FILE) {
     if (!tick) throw new Error('Paper loop repository required');
     let stop: (() => Promise<void>) | undefined;

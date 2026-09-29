@@ -28,3 +28,7 @@ it('exposes no order endpoint', async () => {
   try { expect((await app.inject({ method: 'POST', url: '/orders' })).statusCode).toBe(404); }
   finally { await app.close(); }
 });
+it('refuses a daily schedule without its persistence dependencies', () => {
+  expect(() => createRuntimeApp({ ...environment, MARKET_DATA_SCHEDULE_ENABLED: true }, { checkConnection: async () => {} }, false))
+    .toThrow('Daily schedule dependencies required');
+});
