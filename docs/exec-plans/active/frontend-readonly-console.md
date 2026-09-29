@@ -29,9 +29,9 @@ tick, collection or configuration action exists in the console.
 - [x] 2. Server: `CONSOLE_READ_TOKEN` env (optional; distinct from order token); read-only
       `GET /api/v1/console/{status,orders,loop-runs,snapshots}` with bounded `limit`; repository
       list queries (account-scoped for orders/runs); tests.
-- [ ] 3. Scaffold `apps/web` (Next.js, TanStack Query), lint/typecheck/build wired into repo gates.
-- [ ] 4. Server-side proxy route with fixed GET allow-list and timeout; tests.
-- [ ] 5. Panels: safety banner, portfolio, snapshots, loop runs, orders. Stale/error states.
+- [x] 3. Scaffold `apps/web` (Next.js, TanStack Query), lint/typecheck/build wired into repo gates.
+- [x] 4. Server-side proxy route with fixed GET allow-list and timeout; tests.
+- [x] 5. Panels: safety banner, portfolio, snapshots, loop runs, orders. Stale/error states.
 - [ ] 6. Deploy (loopback-only), SSH-tunnel access check, document.
 
 # Decisions
@@ -44,8 +44,15 @@ tick, collection or configuration action exists in the console.
 
 2026-09-29: plan rewritten for implementation after Phase 7 and the data pipeline.
 2026-09-29: steps 1–2 done. `GET /api/v1/console/{status,orders,loop-runs,snapshots}`, limit 1–100
-(default 20), read token required, 503 `console_disabled` without it. 512 tests passed; DB suite
+(default 20), read token required, 503 `console_disabled` without it. 506 tests passed; DB suite
 15/15 on a disposable PostgreSQL.
+2026-09-29: steps 3–5 done. `apps/web` (Next.js 16.3, React 19.3, TanStack Query 5.104) with a
+server-side proxy `/api/console/<name>` (allow-list: status, orders, loop-runs, snapshots,
+portfolio, health, broker-status; `limit` only; 10 s timeout; env `CONSOLE_API_URL`,
+`CONSOLE_READ_TOKEN`). Panels: safety banner, portfolio, loop runs, orders, snapshots; stale data
+stays visible with a warning. ESLint forbids web imports of server code. Gates: lint, typecheck,
+528 tests, build (server + web). Local check against a mock upstream: 404 for unknown names, 405
+for POST, token absent from HTML, page renders PAPER banner with no browser console errors.
 
 # Validation
 

@@ -1,0 +1,25 @@
+:root { --bg: #f6f7f9; --panel: #fff; --text: #1b1f24; --muted: #6a737d; --line: #e1e4e8;
+  --paper: #0b6e4f; --live: #b00020; --unknown: #8a6d00; --warn: #b35900; --buy: #c62828; --sell: #1565c0; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+.banner { padding: 12px 16px; color: #fff; position: sticky; top: 0; z-index: 1; }
+.banner-paper { background: var(--paper); }
+.banner-live { background: var(--live); outline: 4px solid #ff5252; }
+.banner-unknown { background: var(--unknown); }
+.mode { font-size: 20px; letter-spacing: .02em; }
+.flags { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; }
+.flag { background: rgba(255,255,255,.15); border-radius: 4px; padding: 2px 8px; }
+.flag.warn { background: #fff3cd; color: #5c3b00; font-weight: 600; }
+.grid { display: grid; gap: 16px; padding: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; overflow-x: auto; }
+.panel-header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.panel h2 { font-size: 16px; margin: 0 0 8px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin: 0 0 8px; }
+.stats dt { color: var(--muted); font-size: 12px; } .stats dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+.muted { color: var(--muted); font-size: 12px; } .mono { font-family: ui-monospace, monospace; }
+.warning { background: #fff3cd; color: #5c3b00; padding: 6px 8px; border-radius: 4px; }
+.warn-text { color: var(--warn); font-weight: 600; } .buy { color: var(--buy); } .sell { color: var(--sell); }
+footer { padding: 0 16px 16px; }
