@@ -10,7 +10,7 @@ Never retry an ambiguous order POST. No credentials/account numbers in DB audit 
 - [x] Additive Drizzle migration and repository with idempotency/account serialization
 - [x] Protected HTTP endpoints, production wiring and operational documentation
 - [x] Unit/inject/adapter/database checks and typecheck/lint/test/build
-- [ ] Deployment and authorized single Samsung share verification if environment is available
+- [x] Deployment and authorized single Samsung share verification if environment is available
 # Decisions
 Persist PREPARING then risk audit then SUBMITTING before sending; durable unresolved orders block
 other keys for the account. Replays read the original order. Unknown outcomes require reconciliation,
@@ -40,5 +40,7 @@ migration and deployment passed; health and spaced production KIS read/risk endp
 An actual historical one-share BUY (20260917, broker order 23317) was independently confirmed by
 KIS fill inquiry and holdings; persisted order/execution match. Repeated terminal reconciliation
 did not duplicate history. Details: docs/PAPER_E2E_2026-09-21.md.
-Keep this plan active for the newly requested BUY/SELL checkpoint during a permitted market session.
-No new KIS order was sent in this session; paper execution remains explicitly disabled.
+2026-09-28: the authorized one-share BUY/SELL checkpoint completed during the permitted session.
+Both orders filled and synchronized through the existing risk/execution APIs; holdings returned
+to one share. Idempotent replay added no orders/fills/executions. Paper execution was disabled
+again. No remaining work for this plan. See docs/PAPER_E2E_2026-09-28.md.

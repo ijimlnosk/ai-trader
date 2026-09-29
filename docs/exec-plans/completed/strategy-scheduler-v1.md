@@ -29,7 +29,26 @@ Add a paper-only scheduler boundary that evaluates strategy and risk during an e
 - PostgreSQL reported `strategy_runs` present with zero records after the rejected request.
 - 2026-09-23 preflight: health, portfolio, and KIS paper broker status returned 200; portfolio remained one available `005930` share.
 - Before/after counts remained orders=1, executions=1, fills=1, strategy_runs=0.
+- 2026-09-28 14:46 KST: fetched and archived 100 actual KIS raw daily bars for 005930;
+  latest completed bar was 20260923, approximately 119.27 hours old (96-hour maximum).
+  Two identical authenticated in-session scheduler requests returned 503
+  `order_context_unavailable`; counts remained orders=3, executions=3, fills=3, strategy_runs=0.
+  Paper execution/live stayed disabled. No persisted run exists to prove production replay yet.
+  Focused scheduler/strategy tests: 8 passed using installed Vitest (pnpm absent from PATH).
+  Detailed evidence and data-completeness limits: docs/SCHEDULER_CHECK_2026-09-28.md.
 
-## Remaining
+## Completion — 2026-09-29
 
-- Keep Phase 6 KIS BUY/SELL verification separate; this endpoint must remain order-free.
+Production verification passed at 11:07 KST with revised completed 9/28 data, independently
+calendar-checked across all 100 bars. First request 200, complete parsed replay equal, changed-data
+409, one persisted run with expected hash, and orders/executions/fills unchanged at 3 each with
+identical full-row hashes. `order` remained null. Paper execution and live stayed disabled.
+
+See [production evidence](../../SCHEDULER_CHECK_2026-09-29.md). An earlier 503 was followed by a
+read-only diagnosis demonstrating different equity values across the strategy's two portfolio
+reads. A bounded same-key retry passed without code/configuration changes. That intermittent
+availability issue remains a follow-up before automatic-loop commissioning, not a fixed defect.
+
+No source changed since the 9/28 gates: lint/typecheck/build passed, 410 tests passed and 10
+explicit disposable-DB tests skipped. Today's production check supplies the missing persistence,
+replay and conflict evidence. No automatic job or execution wiring was added.

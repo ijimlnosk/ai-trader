@@ -7,8 +7,8 @@ data and credentials. No blind retries, fabricated fills, risk overrides or live
 - [x] Run current repository checks and disposable PostgreSQL persistence tests.
 - [x] Verify compiled migrations on a fresh disposable database and replay safely.
 - [x] Verify Docker configuration/image and deployment health on the supplied environment.
-- [ ] Observe one-share paper BUY, reconciliation, matching holdings and idempotent replay.
-- [ ] Observe paper SELL, matching holdings and ledger-backed realized P/L/risk inputs.
+- [x] Observe one-share paper BUY, reconciliation, matching holdings and idempotent replay.
+- [x] Observe paper SELL, matching holdings and ledger-backed realized P/L/risk inputs.
 - [x] Record local evidence and reconcile stale execution-ledger plan status.
 # Decisions
 Reuse existing tests and runbook. Local stubbed transport is not evidence of a KIS fill.
@@ -48,6 +48,16 @@ submitted. Health, portfolio, quote and broker status each returned 200. Baselin
 005930 share, one available share, average price KRW 254,000, current price KRW 276,500 and
 valuation P/L KRW 22,500. Execution remained false.
 # Validation
+2026-09-28 13:41 KST: resumed Phase 6 preflight against the running deployment.
+Health, portfolio and quote returned 200; runtime remained paper, live disabled, execution disabled,
+kill switch false, with the exact KIS paper URL. Baseline: one available 005930 share with cost
+KRW 254,000; current quote KRW 273,000. The sole order is FILLED and position-synchronized.
+Counts: orders=1, executions=1, fills=1, strategy_runs=0. Every order's cumulative fill quantity
+and amount matches its execution sum; no unresolved order exists. Broker holdings match ledger
+quantity. Diagnostic BUY risk evaluation for one share at the fresh quote returned approved;
+this is not an execution approval and does not submit an order. Account-exclusive-use confirmation
+is pending before temporary execution opt-in and the one-share checkpoint. No new order submitted.
+
 2026-09-21, source commit 1ecd5e7, Node 26.8.2 and pnpm 10.17.1:
 - pnpm lint, pnpm typecheck and pnpm build passed.
 - Initial local Vitest run: 404 passed, 10 database tests skipped.
@@ -63,8 +73,11 @@ valuation P/L KRW 22,500. Execution remained false.
 - Sandbox DNS, shared-memory and loopback restrictions required escalated tooling/DB commands;
   subsequent verification passed. Docker CLI is unavailable locally; no deployment .env exists here.
 # Remaining Work
-New paper BUY/SELL submission and resulting realized-P/L inputs require a permitted market session
-and healthy KIS quote/account reads. Newly partial/unfilled states and reconciliation DB writes
-remain unobserved. Cross-process pacing remains outside scope because there is one server process.
-No broker orders were sent by this verification task.
-Keep this plan active until observed; historical fill evidence is not a newly executed round trip.
+None for the normal full-fill checkpoint. Completed 2026-09-28 at 14:24–14:25 KST:
+BUY and SELL each filled one share at KRW 272,750; quantities progressed 1 → 2 → 1.
+Both new orders synchronized, and replay/reconciliation left counts at three orders, executions
+and fill snapshots. Gross moving-average realized P/L is KRW 9,375; remaining cost KRW 263,375.
+The production next-risk context reflected that P/L and zero consecutive losses. Execution was
+disabled again; live remained disabled. Evidence: docs/PAPER_E2E_2026-09-28.md.
+Actual partial-fill/unknown recovery and cross-process pacing remain outside this checkpoint.
+Phase 5 scheduler dry-run evidence is tracked separately before Phase 7.
