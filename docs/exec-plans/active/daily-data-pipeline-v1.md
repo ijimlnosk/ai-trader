@@ -96,5 +96,7 @@ the operator-built digest for the same data.
 
 # Remaining Work
 
-- Deploy Phase A disabled (migration 0005), collect after 18:30 KST and compare with a manual pull;
-  next session, compare the prepared input with an independently built one. Then Phase B.
+- Phase A deployed disabled 2026-09-29 14:01 KST; collection through 9/28 and the prepared 9/29
+  input matched the independent Phase 5 dataset. See [deployment](../../DATA_PIPELINE_DEPLOY_2026-09-29.md).
+- After 18:30 KST 9/29: collect through 9/29 and compare with a manual pull; on 9/30 confirm the
+  prepared input. Then Phase B (needs separate approval before enabling).
