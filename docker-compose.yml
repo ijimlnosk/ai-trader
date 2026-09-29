@@ -49,6 +49,26 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+  # Read-only console; loopback only. Holds the read token server-side, never the order token.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      CONSOLE_API_URL: http://server:3000
+      CONSOLE_READ_TOKEN: ${CONSOLE_READ_TOKEN:-}
+    ports:
+      - "127.0.0.1:3100:3000"
+    depends_on:
+      server:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 volumes:
   postgres_data:
     external: true
