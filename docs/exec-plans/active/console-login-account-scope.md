@@ -24,7 +24,7 @@ web proxies or direct API reads. Preserve read-only UI and deterministic trading
 - [x] Add login UI, HttpOnly secure sessions, origin validation, logout cache clearing and empty state.
 - [x] Test unauthenticated, disabled/expired/revoked sessions, two-user isolation and forged account inputs.
 - [x] Run repository gates and isolated DB checks, document administration/recovery and architecture.
-- [ ] Deploy with backup; verify public requests rejected and per-user access without financial writes.
+- [x] Deploy with backup; verify public requests rejected and per-user access without financial writes.
 - [ ] Provision the designated owner securely once its login identity is supplied.
 
 # Decisions
@@ -51,6 +51,25 @@ direct portfolio was unauthenticated. Existing working tree clean at task start 
   paper/live false, execution/loop/tick false, daily collection true. Existing orders/fills/executions 4 each,
   loop runs 1, strategy runs 1. Pre/post financial row digests will be compared during deployment.
 
+2026-09-29 23:50 KST: deployed (commits `2dc3087`, `7a3f25e`). Evidence:
+`/home/jinsol/ai-trader-backups/auth-deploy-20260929` (source, `.env`, Compose, DB dump with
+`pg_restore --list` ok, before/after snapshots). Images built; migration 0006 applied (7 migrations);
+server and web recreated healthy. Switches unchanged (paper; live/execution/loop/tick false;
+collection true). Web has neither machine token; origin `https://trader.jjinsol.com`. Ledger hashes
+and loop count unchanged; 0 users, 0 sessions.
+
+Public checks (anonymous, over HTTPS): `trader.jjinsol.com/` 307 to `/login`, `/login` 200, all seven
+`/api/console/*` 401; `trader-api.jjinsol.com` portfolio, broker status, quote, legacy console,
+`/me/console`, `/auth/me` and risk evaluate 401; `/health` 200; cross-origin login POST 403.
+Before this deployment (since the Cloudflare hostnames were added, observed 18:45 KST) the earlier
+unauthenticated build exposed paper balances, orders and switch state publicly; no order path was
+reachable (execution off, order token required).
+
+Owner login with account ownership was not yet exercised in production (no user exists).
+
 # Remaining Work
 
-Complete unchecked steps. Owner email requested; do not guess ownership or post passwords in chat.
+Provision the owner: the operator runs `python3 scripts/console-user.py create --bind-configured-account`
+locally and types email/password at the prompts (never in chat). Then verify owner login, data
+reads, logout replay rejection and that an unlinked user gets 403. The disposable auth test DB
+container `ai-trader-auth-test-20260929` on the host can be removed when no longer needed.
