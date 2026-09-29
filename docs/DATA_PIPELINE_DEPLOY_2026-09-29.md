@@ -65,3 +65,22 @@ Order-free collection only. Evidence: `/home/jinsol/ai-trader-backups/collection
 `MARKET_DATA_SCHEDULE_ENABLED=true`. Runtime after recreation: paper, live/execution/loop false,
 `MARKET_DATA_SCHEDULE_ENABLED=true`, `PAPER_LOOP_SCHEDULE_ENABLED=false`, healthy, no schedule
 events before 18:30 KST (expected). Rollback: restore both backups and recreate the server.
+
+## Read-only console deployment (15:12–15:26 KST)
+
+Commits through `2c05e17`. Evidence: `/home/jinsol/ai-trader-backups/console-deploy-20260929`
+(source, `.env`, Compose, DB dump with `pg_restore --list` ok, before/after ledger snapshots).
+
+- A 64-hex `CONSOLE_READ_TOKEN` was generated on the host into `.env` without printing it.
+- Server Compose: `CONSOLE_READ_TOKEN` passthrough for `server`; new `web` service on the
+  `ai-trader` network, published at `127.0.0.1:3201` (3100 is used by another host service).
+- Before deploying, the server Dockerfile steps (copying only `apps/server`) were reproduced
+  locally with the new lockfile: frozen install, build and prod deploy succeeded. On the host both
+  images built; `server` recreated healthy (switches unchanged: collection schedule on, all
+  order-capable switches off); `web` started healthy.
+- Checks: direct console API without token 401 (4 routes); via the console proxy status, loop runs
+  (the 9/29 commissioning run), 4 orders and the snapshot through 9/28 were returned; unknown proxy
+  name 404, POST 405; neither token appears in the served page; the read token is rejected (401)
+  by an order-token endpoint; `web` has no `ORDER_API_TOKEN`. Ledger hashes unchanged.
+- Viewed through an SSH tunnel in a browser: PAPER banner and all four panels rendered, no
+  browser console errors. Tunnel and the disposable test database were removed afterwards.

@@ -11,8 +11,8 @@ tick, collection or configuration action exists in the console.
   `CONSOLE_READ_TOKEN` (≥32 chars, different from the order token) authorizes read endpoints only.
 - The token lives only in the Next.js server runtime (route handlers proxy a fixed allow-list of
   GET paths). The browser talks to same-origin `/api/console/*` without credentials.
-- The console, like the API, binds to loopback and is reached through an SSH tunnel; no public
-  ingress or login system in v1.
+- The console, like the API, binds to loopback (host port 3201; 3100 is taken on the host) and
+  is reached through an SSH tunnel; no public ingress or login system in v1.
 - Paper vs live must be visually unambiguous. Money/quantities remain exact strings.
 - Next.js App Router, TanStack Query for server state; Zustand only for genuine client state.
 
@@ -32,7 +32,7 @@ tick, collection or configuration action exists in the console.
 - [x] 3. Scaffold `apps/web` (Next.js, TanStack Query), lint/typecheck/build wired into repo gates.
 - [x] 4. Server-side proxy route with fixed GET allow-list and timeout; tests.
 - [x] 5. Panels: safety banner, portfolio, snapshots, loop runs, orders. Stale/error states.
-- [ ] 6. Deploy (loopback-only), SSH-tunnel access check, document.
+- [x] 6. Deploy (loopback-only), SSH-tunnel access check, document.
 
 # Decisions
 
@@ -53,6 +53,8 @@ portfolio, health, broker-status; `limit` only; 10 s timeout; env `CONSOLE_API_U
 stays visible with a warning. ESLint forbids web imports of server code. Gates: lint, typecheck,
 528 tests, build (server + web). Local check against a mock upstream: 404 for unknown names, 405
 for POST, token absent from HTML, page renders PAPER banner with no browser console errors.
+2026-09-29 15:25 KST: deployed to sol-server (see [deployment](../../DATA_PIPELINE_DEPLOY_2026-09-29.md)).
+Runbook: [CONSOLE.md](../../CONSOLE.md).
 
 # Validation
 
@@ -61,4 +63,5 @@ upstream errors; manual check through the tunnel. Repository gates must include 
 
 # Remaining Work
 
-All steps.
+v1 complete. Possible follow-ups: consolidate the four duplicated bearer checks in server routes;
+show daily-schedule events once they are persisted (currently logs only).
