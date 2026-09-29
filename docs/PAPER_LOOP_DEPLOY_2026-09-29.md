@@ -41,5 +41,5 @@ behavior is covered only by the isolated PostgreSQL tests recorded in the loop p
 ## Not done
 
 - Commissioning was done separately; see [commissioning](PAPER_LOOP_COMMISSION_2026-09-29.md).
-- The disposable test database container `ai-trader-loop-test-20260929` is still running on the
-  server; it is not the operational DB and can be removed once no longer needed.
+- The disposable test database container `ai-trader-loop-test-20260929` (anonymous volume only)
+  was removed after commissioning; the operational `ai-trader-db` volume was not touched.
