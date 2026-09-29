@@ -144,3 +144,25 @@ export const strategyRuns = pgTable('strategy_runs', {
   check('strategy_runs_session_date', sql`${t.sessionDate} ~ '^[0-9]{8}$'`),
   check('strategy_runs_sha256', sql`${t.dataSha256} ~ '^[0-9a-f]{64}$'`),
 ]);
+
+/** Execution-capable claims are isolated from order-free strategy_runs. */
+export const paperLoopRuns = pgTable('paper_loop_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  executionAccount: text('execution_account').notNull(),
+  runKey: text('run_key').notNull(),
+  orderKey: text('order_key').notNull(),
+  input: jsonb('input').$type<import('../../application/paperLoop/input.ts').PaperLoopInput>().notNull(),
+  status: text('status').$type<import('../../application/paperLoop/ports.ts').LoopStatus>().notNull().default('CLAIMED'),
+  result: jsonb('result').$type<import('../../application/paperLoop/ports.ts').PaperLoopRun['result']>(),
+  order: jsonb('order_snapshot').$type<import('../../domain/orders.ts').OrderResponse>(),
+  reason: text('reason'),
+  deadline: instant('deadline').notNull(),
+  createdAt: instant('created_at').notNull().defaultNow(),
+  updatedAt: instant('updated_at').notNull().defaultNow(),
+  version: integer('version').notNull().default(0),
+}, (t) => [
+  uniqueIndex('paper_loop_account_run_idx').on(t.executionAccount, t.runKey),
+  uniqueIndex('paper_loop_account_order_idx').on(t.executionAccount, t.orderKey),
+  uniqueIndex('paper_loop_account_active_idx').on(t.executionAccount).where(sql`${t.status} <> 'COMPLETE'`),
+  check('paper_loop_status', sql`${t.status} IN ('CLAIMED','TRACKING','COMPLETE','HALTED')`),
+]);

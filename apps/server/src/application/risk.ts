@@ -1,3 +1,4 @@
+import type { Portfolio } from '../domain/portfolio.ts';
 import {
   DEFAULT_RISK_POLICY, evaluateRisk, RiskRejection,
   type RiskContext, type RiskDecision, type RiskPolicy, type TradeProposal,
@@ -5,7 +6,7 @@ import {
 
 /** Supplies validated context; paper v1 initialization semantics are owned by its provider. */
 export interface RiskContextProvider {
-  getRiskContext(): Promise<RiskContext | null>;
+  getRiskContext(portfolio?: Portfolio): Promise<RiskContext | null>;
 }
 export interface RiskEvaluation {
   proposal: TradeProposal;

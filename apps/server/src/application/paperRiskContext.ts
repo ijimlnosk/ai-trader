@@ -1,3 +1,4 @@
+import type { Portfolio } from '../domain/portfolio.ts';
 import { z } from 'zod';
 import type { AccountBroker } from './portfolio.ts';
 import type { RiskContextProvider } from './risk.ts';
@@ -24,9 +25,9 @@ export function createPaperPortfolioRiskContextProvider(broker: AccountBroker, l
   killSwitchEnabled = false, now = () => new Date(),
 ): RiskContextProvider {
   return {
-    async getRiskContext(): Promise<RiskContext | null> {
+    async getRiskContext(snapshot?: Portfolio): Promise<RiskContext | null> {
       // Exceptions must propagate; missing or malformed account data never becomes initial capital.
-      const result = riskPortfolioSchema.safeParse(await broker.getPortfolio());
+      const result = riskPortfolioSchema.safeParse(snapshot ?? await broker.getPortfolio());
       if (!result.success) return null;
       const portfolio = result.data;
       if (!ledger) return null;

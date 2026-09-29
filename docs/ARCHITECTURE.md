@@ -336,3 +336,38 @@ weekday, conservatively rejecting signals carried across weekday holidays. Datas
 at 15:30 Seoul and open at 09:00; special sessions are unsupported. The existing execution layer still
 checks its own 09:00–15:20 window and quote receipt freshness. See [Strategy runbook](STRATEGY.md) and
 [decision 0007](decisions/0007-deterministic-strategy-backtest.md) for definitions and limitations.
+
+## Bounded paper loop v1
+
+`POST /api/v1/strategy/paper-loop/tick` is an authenticated application/paperLoop entry point,
+separate from the order-free scheduler. It accepts one archived `005930` dataset, normalized digest,
+archive reference and explicitly sourced historical/current session calendar. Structural validation,
+96-hour freshness, next-weekday eligibility, regular session and two default-off opt-ins precede
+new work. Calendar-source references are operator attestations, not automatic exchange verification.
+
+Migration 0004 adds `paper_loop_runs` with full JSONB input/result/order snapshot, retained strategy
+order identity, deadline and optimistic version. Unique account/run and account/order keys plus
+one-active-claim-per-account serialize work before strategy evaluation. Only a newly created claim
+may call the existing strategy with an execution symbol. The execution engine still rechecks risk
+and reserves orders before broker writes. Order-free `strategy_runs` remain isolated.
+
+Recovery looks up an order by account and retained key and validates its strategy input digest.
+Claims without orders remain blocked; ambiguous orders require existing explicit operator recovery.
+There is no timed unlock, second order key or broker submission retry. Known orders use existing
+reconciliation at most once per tick, until a two-minute deadline. Partial/delayed fills retain
+blockers. Complete runs replay the saved result; callers never reconstruct a trade after holdings
+change. Both loop and paper opt-outs still permit recovery-only access to existing runs/orders.
+
+`app/paperLoopTrigger.ts` optionally loads one bounded local task via infrastructure/market and
+uses the same application tick and composed KIS session. Its self-scheduling 30-second callback
+never overlaps itself, stops on completion/halt/error, and does not infer holidays or replace tasks.
+`preClose` stops and awaits it before database shutdown. Base Compose leaves it disabled/unmounted.
+No multi-day ingestion, AI path or automatic live trading is introduced.
+
+Strategy now supplies its one portfolio snapshot to the ledger-backed RiskContextProvider instead
+of making two independently marked portfolio reads. Input validation and ledger-quantity comparison
+remain mandatory; exact context equality is preserved. Debug risk still fetches its own snapshot,
+and actual execution still obtains fresh portfolio/quote/buying power and re-evaluates risk.
+Earlier statements describing no loop/poller refer to the pre-0004 implementation; this bounded,
+default-off loop is the only new background behavior. See [runbook](PAPER_LOOP.md) and
+[decision 0008](decisions/0008-durable-paper-loop.md).

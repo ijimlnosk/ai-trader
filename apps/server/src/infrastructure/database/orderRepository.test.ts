@@ -1,3 +1,10 @@
+import { createPaperLoopRepository } from './paperLoopRepository.ts';
+import { paperLoopSetup } from '../../../test/paperLoopSetup.ts';
+import { loopOrderKey } from '../../application/paperLoop/input.ts';
+import { createPaperLoop } from '../../application/paperLoop/index.ts';
+import { createStrategyService } from '../../application/strategy/index.ts';
+import { createPaperPortfolioRiskContextProvider } from '../../application/paperRiskContext.ts';
+import { createOrderServices } from '../../application/orders/index.ts';
 import { strategySetup } from '../../../test/strategySetup.ts';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -6,7 +13,7 @@ import { sql, eq, isNull } from 'drizzle-orm';
 import { createDatabase } from './index.ts';
 import { createOrderRepository } from './orderRepository.ts';
 import { orders, orderFills, positions, executions, tradeProposals } from './schema.ts';
-import { input, position, portfolio } from '../../../test/orderFixtures.ts';
+import { input, position, portfolio, time } from '../../../test/orderFixtures.ts';
 
 // Only an explicitly provisioned disposable DB is permitted; no production DATABASE_URL fallback.
 const testUrl = process.env.ORDER_TEST_DATABASE_URL;
@@ -30,6 +37,9 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
       SELECT id,'005930','BUY',2,70000,'KRW','historical-account','987','20260915','FILLED',2,140000,now() FROM p`);
     const ledgerMigration = await readFile(new URL('../../../drizzle/0002_lean_black_panther.sql', import.meta.url), 'utf8');
     await database.db.execute(sql.raw(ledgerMigration));
+    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims']) {
+      await database.db.execute(sql.raw(await readFile(new URL(`../../../drizzle/${name}.sql`, import.meta.url), 'utf8')));
+    }
   });
   afterAll(async () => { if (database) await database.close(); });
   it('preserves existing rows after expansion', async () => {
@@ -132,6 +142,54 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     await repo.update(order, { brokerStatus: 'FILLED', filledQuantity: '1', filledAmount: '70000',
       brokerOrderDate: '20260916', brokerOrderId: '301', positionsSyncedAt: new Date().toISOString() });
     await expect(repo.getTradeLedger('20260916')).rejects.toThrow('Incomplete trade ledger');
+  });
+
+  it('paper-loop claims survive races/restart and isolate accounts, bars and keys', async () => {
+    const s = paperLoopSetup(); const scope = randomUUID(); const key = loopOrderKey(s.input);
+    const repo = createPaperLoopRepository(database.db, scope);
+    const claims = await Promise.all([repo.claim(s.input, key, time), repo.claim(s.input, key, time)]);
+    expect(claims.filter(c => c.created)).toHaveLength(1);
+    expect(claims[0]!.run.id).toBe(claims[1]!.run.id);
+    const restarted = createPaperLoopRepository(database.db, scope);
+    expect((await restarted.find(s.input.runKey, key))?.input).toEqual(s.input);
+    await expect(restarted.claim({ ...s.input, dataRef: 'changed' }, key, time)).rejects.toMatchObject({ code: 'loop_conflict' });
+    await expect(repo.claim({ ...s.input, runKey: 'other' }, randomUUID(), time)).rejects.toMatchObject({ code: 'loop_busy' });
+    expect((await createPaperLoopRepository(database.db, randomUUID()).claim(s.input, key, time)).created).toBe(true);
+    const first = claims[0]!.run;
+    await repo.update(first, { status: 'COMPLETE', result: null, order: null, reason: null });
+    await expect(repo.update(first, { status: 'HALTED', result: null, order: null, reason: 'stale' })).rejects.toMatchObject({ code: 'loop_conflict' });
+    expect((await repo.claim({ ...s.input, runKey: 'other' }, randomUUID(), time)).created).toBe(true);
+  });
+  it('paper-loop order lookup is account scoped and blockers match execution reservation', async () => {
+    const scope = randomUUID(); const ordersRepo = createOrderRepository(database.db, scope);
+    const repo = createPaperLoopRepository(database.db, scope); const key = randomUUID();
+    expect(await repo.hasUnresolvedOrder()).toBe(false);
+    const { order } = await ordersRepo.reserve(key, input);
+    expect((await repo.findOrder(key))?.id).toBe(order.id); expect(await repo.hasUnresolvedOrder()).toBe(true);
+    expect(await createPaperLoopRepository(database.db, randomUUID()).findOrder(key)).toBeNull();
+    const filled = await ordersRepo.update(order, { brokerStatus: 'FILLED' });
+    expect(await repo.hasUnresolvedOrder()).toBe(true);
+    await ordersRepo.update(filled, { positionsSyncedAt: time });
+    expect(await repo.hasUnresolvedOrder()).toBe(false);
+  });
+  it('real loop plus durable repositories submits once across concurrent callers and restart', async () => {
+    const s = paperLoopSetup(); const scope = randomUUID();
+    const repository = createOrderRepository(database.db, scope);
+    const orders = createOrderServices({ ...s.deps, repository });
+    const strategy = createStrategyService({ ...s.strategyDeps, orders,
+      risk: createPaperPortfolioRiskContextProvider(s.account, repository, false, s.deps.now) });
+    s.broker.getOrderFill.mockResolvedValue(null);
+    const deps = { ...s.loopDeps, strategy, orders, repository: createPaperLoopRepository(database.db, scope) };
+    const tick = createPaperLoop(deps);
+    const results = await Promise.allSettled([tick(s.input), tick(s.input)]);
+    expect(results.some(r => r.status === 'fulfilled')).toBe(true);
+    expect(s.broker.submitOrder).toHaveBeenCalledTimes(1);
+    const restarted = createPaperLoop({ ...deps, repository: createPaperLoopRepository(database.db, scope), enabled: false });
+    const recovered = await restarted(s.input);
+    expect(recovered.order?.brokerStatus).toBe('SUBMITTED');
+    expect(s.broker.submitOrder).toHaveBeenCalledTimes(1);
+    const changed = { ...s.input, runKey: 'new-key-same-bar' };
+    await expect(restarted(changed)).rejects.toMatchObject({ code: 'loop_conflict' });
   });
 
 });

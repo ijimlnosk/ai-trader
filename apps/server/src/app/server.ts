@@ -1,3 +1,4 @@
+import { createPaperLoopRepository } from '../infrastructure/database/paperLoopRepository.ts';
 import { createDatabase } from '../infrastructure/database/index.ts';
 import { createRuntimeApp } from './createRuntimeApp.ts';
 import { parseEnvironment } from './environment.ts';
@@ -10,7 +11,7 @@ async function start() {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   const database = createDatabase(environment.DATABASE_URL);
   const executionAccount = createHash('sha256').update(`paper:${environment.KIS_ACCOUNT_NO ?? ''}:${environment.KIS_ACCOUNT_PRODUCT_CODE ?? ''}`).digest('hex');
-  const app = createRuntimeApp(environment, database, true, undefined, undefined, createOrderRepository(database.db, executionAccount), createStrategyRunRepository(database.db, executionAccount));
+  const app = createRuntimeApp(environment, database, true, undefined, undefined, createOrderRepository(database.db, executionAccount), createStrategyRunRepository(database.db, executionAccount), createPaperLoopRepository(database.db, executionAccount));
   app.addHook('onClose', () => database.close());
   let stopping = false;
   const shutdown = async () => {

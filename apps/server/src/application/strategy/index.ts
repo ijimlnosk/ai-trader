@@ -11,7 +11,7 @@ import { riskPortfolioSchema } from '../paperRiskContext.ts';
 import { OrderError } from '../orders/ports.ts';
 
 /** Same strategy/symbol/bar cannot acquire a second key by changing configuration or side. */
-export function strategyOrderKey(signal: StrategyEvaluation): string {
+export function strategyOrderKey<T extends Pick<StrategyEvaluation, 'strategyId' | 'version' | 'symbol' | 'evaluatedAt'>>(signal: T): string {
   const hex = createHash('sha256').update(JSON.stringify([signal.strategyId, signal.version, signal.symbol, signal.evaluatedAt])).digest('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
@@ -35,10 +35,11 @@ export function createStrategyService(deps: {
     }
     if (executeSymbol !== undefined && !deps.orders) throw new OrderError('execution_disabled');
     if (executeSymbol !== undefined && !data.series.some((s) => s.symbol === executeSymbol)) throw new OrderError('order_context_unavailable');
-    const portfolioResult = riskPortfolioSchema.safeParse(await deps.account.getPortfolio());
+    const snapshot = await deps.account.getPortfolio();
+    const portfolioResult = riskPortfolioSchema.safeParse(snapshot);
     if (!portfolioResult.success) throw new OrderError('order_context_unavailable');
     const portfolio = portfolioResult.data;
-    const context = await deps.risk.getRiskContext();
+    const context = await deps.risk.getRiskContext(snapshot);
     if (!context || context.cash !== portfolio.cash || context.totalEquity !== portfolio.totalEvaluation
       || context.openPositionCount !== portfolio.positions.length) throw new OrderError('order_context_unavailable');
     const dataSha256 = createHash('sha256').update(JSON.stringify(data)).digest('hex');

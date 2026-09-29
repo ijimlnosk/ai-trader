@@ -29,6 +29,13 @@
       "when": 1790063539650,
       "tag": "0003_tearful_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790648500920,
+      "tag": "0004_paper_loop_claims",
+      "breakpoints": true
     }
   ]
 }

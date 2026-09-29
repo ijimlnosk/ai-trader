@@ -1,3 +1,4 @@
+import type { PaperLoopRepository } from '../application/paperLoop/ports.ts';
 import type { DatabaseHealth } from '../application/health.ts';
 import type { MarketBroker } from '../application/market.ts';
 import type { AccountBroker } from '../application/portfolio.ts';
@@ -14,10 +15,11 @@ export function createRuntimeApp(
   environment: Environment, database: DatabaseHealth,
   logger: boolean | { write(chunk: string): void } = true,
   marketBroker?: MarketBroker, accountBroker?: AccountBroker,
-  orderRepository?: OrderRepository, strategyRunRepository?: StrategyRunRepository,
+  orderRepository?: OrderRepository, strategyRunRepository?: StrategyRunRepository, paperLoopRepository?: PaperLoopRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
+  if (environment.PAPER_LOOP_ENABLED && (!paperLoopRepository || !orderRepository)) throw new Error('Paper loop repository required');
   const broker = createKisBroker({
     baseUrl: environment.KIS_BASE_URL,
     appKey: environment.KIS_APP_KEY,
@@ -31,6 +33,7 @@ export function createRuntimeApp(
     marketBroker: marketBroker ?? broker,
     accountBroker: account,
     riskContextProvider: createPaperPortfolioRiskContextProvider(account, orderRepository, environment.TRADING_KILL_SWITCH_ENABLED),
+    ...(paperLoopRepository ? { paperLoopRuns: paperLoopRepository } : {}),
     ...(strategyRunRepository ? { strategyRuns: strategyRunRepository } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,

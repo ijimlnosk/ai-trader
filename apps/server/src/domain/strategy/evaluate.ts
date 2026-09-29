@@ -5,8 +5,9 @@ import { strategyConfigId, DEFAULT_STRATEGY_CONFIG, type StrategyConfig } from '
 import { indicators, type Indicators } from './indicators.ts';
 import { candleTime, type DailyCandle } from './marketData.ts';
 import { screenSymbol, type ScreenResult } from './screener.ts';
+export const STRATEGY_IDENTITY = { strategyId: 'ema-cross', version: '1' } as const;
 export interface StrategyEvaluation {
-  strategyId: 'ema-cross'; version: '1'; configId: string; symbol: string; evaluatedAt: string;
+  strategyId: typeof STRATEGY_IDENTITY.strategyId; version: typeof STRATEGY_IDENTITY.version; configId: string; symbol: string; evaluatedAt: string;
   source: string; screen: ScreenResult; indicators: Indicators | null; reason: string; proposal: TradeProposal | null;
 }
 export interface StrategyAccount { cash: string; totalEquity: string; heldQuantity: string }
@@ -19,7 +20,7 @@ export function evaluateStrategy(symbol: string, candles: readonly DailyCandle[]
   if (held % DECIMAL_SCALE !== 0n || equity <= 0n) throw new Error('Invalid strategy account');
   const screen = screenSymbol(symbol, candles, config); const values = indicators(candles);
   const bar = candles.at(-1);
-  const result: StrategyEvaluation = { strategyId: 'ema-cross', version: '1', configId, symbol,
+  const result: StrategyEvaluation = { ...STRATEGY_IDENTITY, configId, symbol,
     evaluatedAt: bar ? candleTime(bar.date, 'close') : '', source, screen, indicators: values,
     reason: 'INSUFFICIENT_HISTORY', proposal: null };
   if (!values || !bar) return result;

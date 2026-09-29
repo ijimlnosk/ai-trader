@@ -5,7 +5,7 @@ import { hasLiveTradingOptIn } from '../domain/tradingSafety.ts';
 const base = { DATABASE_URL: 'postgresql://test:test@localhost:5432/test' };
 describe('environment and trading safety', () => {
   it('defaults to paper with live disabled', () => {
-    expect(parseEnvironment(base)).toMatchObject({ BROKER_MODE: 'paper', LIVE_TRADING_ENABLED: false, PORT: 3000 });
+    expect(parseEnvironment(base)).toMatchObject({ BROKER_MODE: 'paper', LIVE_TRADING_ENABLED: false, PAPER_LOOP_ENABLED: false, PAPER_ORDER_EXECUTION_ENABLED: false, PORT: 3000 });
   });
   it.each([
     ['BROKER_MODE', 'LIVE'], ['BROKER_MODE', ''], ['LIVE_TRADING_ENABLED', '1'],
@@ -25,4 +25,10 @@ describe('environment and trading safety', () => {
     const config = parseEnvironment({ ...base, BROKER_MODE: brokerMode, LIVE_TRADING_ENABLED: String(liveTradingEnabled) });
     expect(hasLiveTradingOptIn({ brokerMode: config.BROKER_MODE, liveTradingEnabled: config.LIVE_TRADING_ENABLED })).toBe(expected);
   });
+});
+
+it('loop opt-in requires strong authentication but never implicitly enables order execution', () => {
+  expect(() => parseEnvironment({ ...base, PAPER_LOOP_ENABLED: 'true' })).toThrow('ORDER_API_TOKEN');
+  expect(parseEnvironment({ ...base, PAPER_LOOP_ENABLED: 'true', ORDER_API_TOKEN: 'x'.repeat(32) }))
+    .toMatchObject({ PAPER_LOOP_ENABLED: true, PAPER_ORDER_EXECUTION_ENABLED: false, LIVE_TRADING_ENABLED: false });
 });

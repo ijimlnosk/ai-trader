@@ -69,3 +69,14 @@ it('risk denial at evaluation does not invoke order execution', async () => {
   expect(result.evaluations.find((e) => e.signal.symbol === '005930')?.decision?.reasons).toContain('KILL_SWITCH_ENABLED');
   expect(s.rows.size).toBe(0); expect(s.broker.submitOrder).not.toHaveBeenCalled();
 });
+
+it('uses one coherent portfolio for strategy risk while execution still obtains fresh account data', async () => {
+  const s = strategySetup();
+  const original = await s.account.getPortfolio();
+  s.account.getPortfolio.mockClear();
+  s.account.getPortfolio.mockResolvedValueOnce(original).mockResolvedValue({ ...original, totalEvaluation: '10000500' });
+  const result = await s.evaluate(s.data);
+  expect(result.evaluations[0]?.context.totalEquity).toBe(original.totalEvaluation);
+  expect(s.account.getPortfolio).toHaveBeenCalledTimes(1);
+  expect(s.broker.submitOrder).not.toHaveBeenCalled();
+});
