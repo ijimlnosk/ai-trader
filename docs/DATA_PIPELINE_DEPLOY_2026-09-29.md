@@ -42,7 +42,7 @@ collection as "retry later / skip", never as missing data to fill.
 ## Remaining
 
 After 18:30 KST, collect through `20260929` and compare against a manual pull; on 2026-09-30
-confirm the prepared input. Phase B scheduling is not started.
+confirm the prepared input. Phase B code is deployed but disabled (below).
 
 ## Phase B deployment, disabled (14:36–14:47 KST)
 
