@@ -84,3 +84,18 @@ Commits through `2c05e17`. Evidence: `/home/jinsol/ai-trader-backups/console-dep
   by an order-token endpoint; `web` has no `ORDER_API_TOKEN`. Ledger hashes unchanged.
 - Viewed through an SSH tunnel in a browser: PAPER banner and all four panels rendered, no
   browser console errors. Tunnel and the disposable test database were removed afterwards.
+
+## Automatic paper trading enabled (2026-09-30 00:54 KST)
+
+Owner-approved. Commit `6ca38f8` (morning confirmation, migration 0007) deployed first; evidence
+`/home/jinsol/ai-trader-backups/autotrade-enable-20260930` (source, `.env`, Compose, DB dump with
+`pg_restore --list` ok, before snapshot, reusable `check.sh`). `.env`: `PAPER_ORDER_EXECUTION_ENABLED`,
+`PAPER_LOOP_ENABLED`, `PAPER_LOOP_SCHEDULE_ENABLED` set true; collection stays on; live false; kill
+switch false; no task file. Server and web recreated healthy; anonymous console reads still 401.
+Preparation at 00:54 KST correctly skipped with `snapshot_unconfirmed`.
+
+The 9/29 bar kept changing overnight: close 273,000 (18:30), 273,500 (18:45 manual pull),
+275,000 (23:49 re-collection after a restart). Likely after-market (NXT) prices in the KIS daily
+series; unverified. Only the 08:00–08:50 KST morning re-collection is trusted for trading.
+
+Rollback: set the three switches back to false (or restore `env.before`) and recreate `server`.
