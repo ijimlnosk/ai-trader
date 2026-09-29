@@ -9,7 +9,7 @@ Preserve previous verification documentation and server-specific Compose/.env se
 - [x] Recheck application quote/session guard immediately before dispatch after queue/token waits.
 - [x] Prove known-unsent expiration versus ambiguous POST handling and run repository checks.
 - [x] Deploy exact reviewed patch with execution disabled; verify burst reads and preserved DB history.
-- [ ] Record results and remaining in-session paper BUY/SELL checkpoint.
+- [x] Record results and remaining in-session paper BUY/SELL checkpoint.
 # Decisions
 Use a conservative 1.5-second minimum start interval, matching successful server diagnostics.
 One queue per composed KIS client; one production broker instance. No cross-process quota guarantee.
@@ -36,3 +36,8 @@ the replacement; server recreation and health 200 succeeded. Runtime remains exe
 # Remaining Work
 The pacing patch is complete. New paper BUY/SELL reconciliation and realized-P/L evidence still
 require a permitted market session; execution is intentionally disabled after deployment.
+
+2026-09-29: the remaining checkpoint is satisfied. The 2026-09-28 in-session paper BUY/SELL
+([evidence](../../PAPER_E2E_2026-09-28.md)) and the 2026-09-29 loop commissioning
+([evidence](../../PAPER_LOOP_COMMISSION_2026-09-29.md)) ran through the paced KIS client with
+reconciliation and realized-P/L verified. Plan complete.
