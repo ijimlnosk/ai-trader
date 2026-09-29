@@ -76,3 +76,10 @@ unlinked users are denied, and logout invalidates replay. Provision the owner us
 For rollback, stop public web/API ingress before reverting to a pre-auth build: that version exposes
 anonymous data. Keep the additive auth tables for a forward fix; do not drop financial tables or
 restore an old financial snapshot over new trades. Web build rollback alone is unsafe.
+
+## Automatic trading switch
+
+The `자동매매` card toggles owner pause/resume (see [decision 0010](decisions/0010-owner-auto-trading-control.md)).
+Turning it off asks for one confirmation; turning it on asks for the password again. It only works
+when the server environment allows automatic trading; otherwise the card shows `서버에서 막힘`.
+Changes are listed under `변경 기록`. Pausing never cancels an order already sent.

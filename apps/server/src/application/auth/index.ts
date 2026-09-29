@@ -37,6 +37,20 @@ export function createAuth(repository: AuthRepository, passwords: PasswordVerifi
       if (!identity || Date.parse(identity.expiresAt) <= now().getTime()) throw new AuthError('unauthorized');
       return identity;
     },
+    /**
+     * Step-up check for a sensitive action by an already signed-in user. Shares the per-email
+     * budget with login, so repeated wrong passwords here also lock login for the window.
+     */
+    async reauthenticate(identity: SessionIdentity, password: unknown) {
+      const input = loginSchema.parse({ email: identity.email, password });
+      if (hashing >= 2 || !await repository.consumeAttempt(hash(input.email), 5, 900)) throw new AuthError('login_rate_limited');
+      const user = await repository.findUser(input.email);
+      hashing++;
+      let valid: boolean;
+      try { valid = await passwords.verify(input.password, user?.passwordHash ?? null); }
+      finally { hashing--; }
+      if (!valid || !user || user.disabled || user.id !== identity.id) throw new AuthError('password_incorrect');
+    },
     async logout(token: string | undefined) {
       if (token && /^[a-f0-9]{64}$/.test(token)) await repository.revoke(hash(token));
     },

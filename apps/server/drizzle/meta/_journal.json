@@ -57,6 +57,13 @@
       "when": 1790696243856,
       "tag": "0007_market_snapshot_confirmation",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790697367740,
+      "tag": "0008_trading_controls",
+      "breakpoints": true
     }
   ]
 }

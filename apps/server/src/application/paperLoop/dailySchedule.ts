@@ -27,12 +27,13 @@ const seoulMinute = (now: Date) => {
  */
 export function createDailySchedule(deps: {
   collect?: DailySnapshotCollector | undefined;
-  loop?: { prepare: PaperLoopPreparer; tick: PaperLoop } | undefined;
+  /** isEnabled is the owner's pause/resume control; failures to read it count as paused. */
+  loop?: { prepare: PaperLoopPreparer; tick: PaperLoop; isEnabled: () => Promise<boolean> } | undefined;
   report: ScheduleReport; now?: () => Date;
 }) {
   const now = deps.now ?? (() => new Date());
   const state = { collectDate: '', collectAttempts: 0, collectDone: false, nextCollectAt: 0,
-    tickDate: '', tracking: null as PaperLoopInput | null, halted: false };
+    tickDate: '', pausedDate: '', tracking: null as PaperLoopInput | null, halted: false };
 
   async function collectStep(at: Date, today: string) {
     if (!deps.collect) return;
@@ -75,6 +76,11 @@ export function createDailySchedule(deps: {
     const minute = seoulMinute(at);
     if (state.tickDate === today || krxSessionStatus(today) !== 'session'
       || minute < TICK_START_MINUTE || minute >= TICK_END_MINUTE) return;
+    // Paused days are not consumed: resuming later inside the window still ticks once.
+    if (!await deps.loop.isEnabled().catch(() => false)) {
+      if (state.pausedDate !== today) { state.pausedDate = today; deps.report('paper_loop_paused'); }
+      return;
+    }
     state.tickDate = today;
     const prepared = await deps.loop.prepare().catch(() => null);
     if (!prepared) return deps.report('paper_loop_skipped', { reason: 'prepare_failed' });

@@ -7,6 +7,7 @@ const ROUTES = {
   portfolio: { path: '/api/v1/me/console/portfolio', list: false },
   health: { path: '/api/v1/me/console/health', list: false },
   'broker-status': { path: '/api/v1/me/console/broker-status', list: false },
+  controls: { path: '/api/v1/me/console/controls', list: false },
 } as const;
 
 export interface ProxyEnvironment { apiUrl?: string | undefined; sessionToken?: string | undefined }

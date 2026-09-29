@@ -214,3 +214,23 @@ export const consoleLoginAttempts = pgTable('console_login_attempts', {
   attempts: integer('attempts').notNull(),
   resetsAt: instant('resets_at').notNull(),
 });
+
+/**
+ * Owner-controlled pause/resume of automatic paper trading, per execution account. It can only
+ * narrow what the environment allows; a missing row means paused.
+ */
+export const tradingControls = pgTable('trading_controls', {
+  executionAccount: text('execution_account').primaryKey(),
+  autoTradingEnabled: boolean('auto_trading_enabled').notNull().default(false),
+  updatedBy: uuid('updated_by').references(() => consoleUsers.id, { onDelete: 'set null' }),
+  updatedAt: instant('updated_at').notNull().defaultNow(),
+});
+
+/** Append-only audit of control changes. */
+export const tradingControlEvents = pgTable('trading_control_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  executionAccount: text('execution_account').notNull(),
+  userId: uuid('user_id').references(() => consoleUsers.id, { onDelete: 'set null' }),
+  autoTradingEnabled: boolean('auto_trading_enabled').notNull(),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [index('trading_control_events_account_idx').on(t.executionAccount, t.createdAt)]);

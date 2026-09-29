@@ -11,5 +11,5 @@ export interface AuthRepository {
 }
 export interface PasswordVerifier { verify(password: string, hash: string | null): Promise<boolean> }
 export class AuthError extends Error {
-  constructor(public readonly code: 'unauthorized' | 'login_rate_limited' | 'account_not_connected') { super(code); }
+  constructor(public readonly code: 'unauthorized' | 'login_rate_limited' | 'account_not_connected' | 'password_incorrect') { super(code); }
 }

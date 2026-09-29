@@ -32,11 +32,13 @@ import { createDailySchedule } from '../application/paperLoop/dailySchedule.ts';
 import { startDailyScheduleTimer } from './dailyScheduleTimer.ts';
 import { createConsoleQueries, type ConsoleReadRepository } from '../application/console/index.ts';
 import { registerConsoleRoutes } from '../interfaces/http/console.ts';
+import { createTradingControls, type TradingControlRepository } from '../application/controls/index.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
   dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
-    dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string },
+    dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string;
+    tradingControls?: TradingControlRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -81,17 +83,21 @@ export function createApp(
     paperLoopScheduleEnabled: environment.PAPER_LOOP_SCHEDULE_ENABLED } }) : undefined;
   registerConsoleRoutes(app, consoleQueries, environment.CONSOLE_READ_TOKEN);
   registerAuthRoutes(app, dependencies.auth, dependencies.executionAccount ?? '');
-  registerUserConsole(app, { auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
+  const controls = dependencies.tradingControls && dependencies.auth && dependencies.executionAccount ? createTradingControls({
+    repository: dependencies.tradingControls, auth: dependencies.auth, account: dependencies.executionAccount,
+    environmentAllows: environment.PAPER_LOOP_SCHEDULE_ENABLED && environment.PAPER_LOOP_ENABLED && environment.PAPER_ORDER_EXECUTION_ENABLED,
+  }) : undefined;
+  registerUserConsole(app, { controls, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
     portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
     health: createHealthCheck(database, new PaperBroker()) });
   if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED) {
-    if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick))) {
+    if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick || !controls))) {
       throw new Error('Daily schedule dependencies required');
     }
     const report = (event: string, detail?: Record<string, string>) => app.log.info({ event, ...detail }, 'Daily schedule');
     const step = createDailySchedule({ report,
       collect: environment.MARKET_DATA_SCHEDULE_ENABLED ? collect : undefined,
-      loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick ? { prepare, tick } : undefined });
+      loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick && controls ? { prepare, tick, isEnabled: controls.isAutoTradingEnabled } : undefined });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });
     app.addHook('preClose', async () => { await stop?.(); });

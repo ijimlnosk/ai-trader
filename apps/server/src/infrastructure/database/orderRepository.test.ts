@@ -1,6 +1,7 @@
 import { createPaperLoopRepository } from './paperLoopRepository.ts';
 import { createDailySnapshotRepository } from './dailySnapshotRepository.ts';
 import { createConsoleReadRepository } from './consoleReadRepository.ts';
+import { createTradingControlRepository } from './tradingControlRepository.ts';
 import { createDailySnapshotCollector } from '../../application/marketData/collect.ts';
 import { createPaperLoopPreparer } from '../../application/paperLoop/prepare.ts';
 import { bar, stubHistory } from '../../../test/marketDataFixtures.ts';
@@ -17,7 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sql, eq, isNull } from 'drizzle-orm';
 import { createDatabase } from './index.ts';
 import { createOrderRepository } from './orderRepository.ts';
-import { orders, orderFills, positions, executions, tradeProposals } from './schema.ts';
+import { orders, orderFills, positions, executions, tradeProposals, consoleUsers } from './schema.ts';
 import { input, position, portfolio, time } from '../../../test/orderFixtures.ts';
 
 // Only an explicitly provisioned disposable DB is permitted; no production DATABASE_URL fallback.
@@ -42,7 +43,7 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
       SELECT id,'005930','BUY',2,70000,'KRW','historical-account','987','20260915','FILLED',2,140000,now() FROM p`);
     const ledgerMigration = await readFile(new URL('../../../drizzle/0002_lean_black_panther.sql', import.meta.url), 'utf8');
     await database.db.execute(sql.raw(ledgerMigration));
-    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth', '0007_market_snapshot_confirmation']) {
+    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth', '0007_market_snapshot_confirmation', '0008_trading_controls']) {
       await database.db.execute(sql.raw(await readFile(new URL(`../../../drizzle/${name}.sql`, import.meta.url), 'utf8')));
     }
   });
@@ -75,6 +76,17 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     expect(await console.listOrders(1)).toHaveLength(1);
     expect(await createConsoleReadRepository(database.db, randomUUID()).listLoopRuns(10)).toEqual([]);
     expect((await console.listSnapshots(2)).length).toBeGreaterThan(0);
+  });
+  it('trading controls default to paused, upsert atomically with an audit trail and stay account-scoped', async () => {
+    const controls = createTradingControlRepository(database.db);
+    const account = randomUUID();
+    const [user] = await database.db.insert(consoleUsers).values({ email: `${account}@example.test`, passwordHash: 'x', executionAccount: account }).returning();
+    expect(await controls.get(account)).toEqual({ enabled: false, updatedAt: null, updatedByEmail: null });
+    expect(await controls.set(account, true, user!.id)).toMatchObject({ enabled: true, updatedByEmail: `${account}@example.test` });
+    expect((await controls.set(account, false, user!.id)).enabled).toBe(false);
+    expect((await controls.events(account, 10)).map((event) => event.enabled)).toEqual([false, true]);
+    expect(await controls.get(randomUUID())).toMatchObject({ enabled: false });
+    expect(await controls.events(randomUUID(), 10)).toEqual([]);
   });
   it('preserves existing rows after expansion', async () => {
     const legacy = await database.db.select().from(orders).where(isNull(orders.executionAccount));

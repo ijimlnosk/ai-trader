@@ -1,4 +1,5 @@
 import type { AuthService } from '../application/auth/index.ts';
+import type { TradingControlRepository } from '../application/controls/index.ts';
 import type { PaperLoopRepository } from '../application/paperLoop/ports.ts';
 import type { DatabaseHealth } from '../application/health.ts';
 import type { MarketBroker } from '../application/market.ts';
@@ -19,7 +20,7 @@ export function createRuntimeApp(
   logger: boolean | { write(chunk: string): void } = true,
   marketBroker?: MarketBroker, accountBroker?: AccountBroker,
   orderRepository?: OrderRepository, strategyRunRepository?: StrategyRunRepository, paperLoopRepository?: PaperLoopRepository,
-  dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository, auth?: AuthService, executionAccount?: string,
+  dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository, auth?: AuthService, executionAccount?: string, tradingControls?: TradingControlRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
@@ -35,6 +36,7 @@ export function createRuntimeApp(
   // Diagnostics run only on requests, after app construction has completed.
   const app = createApp(environment, database, {
     ...(auth ? { auth } : {}),
+    ...(tradingControls ? { tradingControls } : {}),
     ...(executionAccount ? { executionAccount } : {}),
     marketBroker: marketBroker ?? broker,
     accountBroker: account,

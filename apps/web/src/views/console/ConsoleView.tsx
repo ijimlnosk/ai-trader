@@ -7,6 +7,7 @@ import { HoldingsList } from '@/entities/portfolio/HoldingsList';
 import { PortfolioSummary } from '@/entities/portfolio/PortfolioSummary';
 import { SnapshotsList } from '@/entities/snapshots/SnapshotsList';
 import { StatusCard } from '@/entities/status/StatusCard';
+import { AutoTradingCard } from '@/features/autoTrading/AutoTradingCard';
 import { Tabs } from '@/shared/ui/Tabs';
 import { AppBar } from './AppBar';
 
@@ -25,6 +26,7 @@ export function ConsoleView({ email }: { email: string }) {
       <main className="layout">
         <div className="column">
           <PortfolioSummary />
+          <AutoTradingCard />
           <StatusCard />
           <LatestRunCard />
         </div>

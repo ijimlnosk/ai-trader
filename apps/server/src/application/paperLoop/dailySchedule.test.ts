@@ -17,8 +17,9 @@ function setup(iso: string) {
   const collect = vi.fn<DailySnapshotCollector>().mockResolvedValue({ status: 'saved', snapshot } as never);
   const prepare = vi.fn<PaperLoopPreparer>().mockResolvedValue({ status: 'ready', input });
   const tick = vi.fn<PaperLoop>().mockResolvedValue(run('COMPLETE'));
-  const step = createDailySchedule({ collect, loop: { prepare, tick }, report, now: time.now });
-  return { ...time, report, collect, prepare, tick, step };
+  const isEnabled = vi.fn(async () => true);
+  const step = createDailySchedule({ collect, loop: { prepare, tick, isEnabled }, report, now: time.now });
+  return { ...time, report, collect, prepare, tick, isEnabled, step };
 }
 
 describe('daily schedule collection', () => {
@@ -123,6 +124,34 @@ describe('daily schedule ticks', () => {
     await s.step();
     expect(s.tick).not.toHaveBeenCalled();
     expect(s.report.mock.calls).toEqual([['paper_loop_skipped', { reason: 'snapshot_missing' }], ['paper_loop_skipped', { reason: 'prepare_failed' }]]);
+  });
+
+  it('does not tick while paused, reports once, and still ticks after resuming inside the window', async () => {
+    const s = setup('2026-09-30T00:05:00Z');
+    s.isEnabled.mockResolvedValue(false);
+    await s.step(); await s.step();
+    expect(s.prepare).not.toHaveBeenCalled();
+    expect(s.report.mock.calls.filter(([event]) => event === 'paper_loop_paused')).toHaveLength(1);
+    s.isEnabled.mockResolvedValue(true);
+    s.state.now = new Date('2026-09-30T01:00:00Z');
+    await s.step(); await s.step();
+    expect(s.tick).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats an unreadable control as paused', async () => {
+    const s = setup('2026-09-30T00:05:00Z');
+    s.isEnabled.mockRejectedValue(new Error('db down'));
+    await s.step();
+    expect(s.prepare).not.toHaveBeenCalled();
+  });
+
+  it('keeps reconciling a tracked order after a pause', async () => {
+    const s = setup('2026-09-30T00:05:00Z');
+    s.tick.mockResolvedValueOnce(run('TRACKING')).mockResolvedValueOnce(run('COMPLETE'));
+    await s.step();
+    s.isEnabled.mockResolvedValue(false);
+    await s.step();
+    expect(s.tick).toHaveBeenCalledTimes(2);
   });
 
   it('never ticks on closures and does not catch up missed days', async () => {

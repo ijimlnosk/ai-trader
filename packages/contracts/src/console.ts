@@ -50,3 +50,9 @@ export interface ConsoleSnapshot {
 export interface ConsoleList<T> {
   items: T[];
 }
+
+/** Owner-visible automatic trading control; effective = environment allows AND owner enabled. */
+export interface ConsoleControlsResponse {
+  autoTrading: { enabled: boolean; environmentAllows: boolean; effective: boolean; updatedAt: string | null; updatedByEmail: string | null };
+  events: { enabled: boolean; at: string; byEmail: string | null }[];
+}
