@@ -25,7 +25,7 @@ web proxies or direct API reads. Preserve read-only UI and deterministic trading
 - [x] Test unauthenticated, disabled/expired/revoked sessions, two-user isolation and forged account inputs.
 - [x] Run repository gates and isolated DB checks, document administration/recovery and architecture.
 - [x] Deploy with backup; verify public requests rejected and per-user access without financial writes.
-- [ ] Provision the designated owner securely once its login identity is supplied.
+- [x] Provision the designated owner securely once its login identity is supplied.
 
 # Decisions
 
@@ -66,6 +66,11 @@ unauthenticated build exposed paper balances, orders and switch state publicly; 
 reachable (execution off, order token required).
 
 Owner login with account ownership was not yet exercised in production (no user exists).
+
+2026-09-30 00:17 KST: the operator created the owner account with the local prompt script (the password
+never passed through the agent). DB check (no secrets read): one enabled user, bound to the configured
+execution account, with active sessions — i.e. production owner login succeeded. A password first
+posted in chat was not used by the agent; the operator was advised to pick a different one.
 
 # Remaining Work
 

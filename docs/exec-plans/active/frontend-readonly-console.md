@@ -65,3 +65,9 @@ upstream errors; manual check through the tunnel. Repository gates must include 
 
 v1 complete. Possible follow-ups: consolidate the four duplicated bearer checks in server routes;
 show daily-schedule events once they are persisted (currently logs only).
+
+2026-09-30: mobile-first redesign (`34ddd7b`) deployed to `trader.jjinsol.com` 00:32 KST: sticky app bar
+(mode pill, refresh, account menu), total-value summary with Korean up/down colors, one-line
+"can an order be sent" status, latest run card, tabs with row lists instead of tables, dark mode,
+safe-area insets and 44px targets. Checked at 400px and desktop widths in dark mode against a local
+mock; light mode was not visually inspected. Anonymous requests still 401 after deploy.
