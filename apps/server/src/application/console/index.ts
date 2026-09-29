@@ -29,7 +29,7 @@ function loopRun(run: PaperLoopRun): ConsoleLoopRun {
 function snapshot(item: DailySnapshot): ConsoleSnapshot {
   return { id: item.id, symbol: item.symbol, through: item.through, collectedAt: item.collectedAt,
     calendarVersion: item.calendarVersion, bars: item.dataset.sessions.length, datasetSha256: item.datasetSha256,
-    candlesSha256: item.candlesSha256, revisedDates: item.revisedDates, lastBar: item.dataset.series[0]?.candles.at(-1) ?? null };
+    candlesSha256: item.candlesSha256, revisedDates: item.revisedDates, confirmedAt: item.confirmedAt, lastBar: item.dataset.series[0]?.candles.at(-1) ?? null };
 }
 
 export function createConsoleQueries(deps: { repository: ConsoleReadRepository; flags: ConsoleFlags; now?: () => Date }) {

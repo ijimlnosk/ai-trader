@@ -9,7 +9,7 @@ const token = 'x'.repeat(32);
 const auth = { authorization: `Bearer ${token}` };
 const snapshot = { id: 's1', symbol: '005930', through: '20260928', collectedAt: '2026-09-28T10:00:00.000Z',
   calendarVersion: 'krx-2026-v1', rawSha256: 'a'.repeat(64), datasetSha256: 'b'.repeat(64), candlesSha256: 'c'.repeat(64),
-  revisedDates: ['20260923'], dataset: { source: 's', timezone: 'Asia/Seoul' as const, priceBasis: 'raw' as const,
+  revisedDates: ['20260923'], confirmedAt: '2026-09-28T10:00:00.000Z', dataset: { source: 's', timezone: 'Asia/Seoul' as const, priceBasis: 'raw' as const,
     sessions: ['20260928'], series: [] } };
 
 function app(collect?: DailySnapshotCollector, prepare?: PaperLoopPreparer, apiToken: string | null = token) {

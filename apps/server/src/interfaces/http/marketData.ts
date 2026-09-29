@@ -25,7 +25,7 @@ export function registerMarketDataRoutes(app: FastifyInstance, deps: {
       return { status: result.status, snapshot: { id: snapshot.id, symbol: snapshot.symbol, through: snapshot.through,
         collectedAt: snapshot.collectedAt, calendarVersion: snapshot.calendarVersion, bars: snapshot.dataset.sessions.length,
         rawSha256: snapshot.rawSha256, datasetSha256: snapshot.datasetSha256, candlesSha256: snapshot.candlesSha256,
-        revisedDates: snapshot.revisedDates } };
+        revisedDates: snapshot.revisedDates, confirmedAt: snapshot.confirmedAt } };
     } catch (error) {
       return reply.code(503).send({ error: { code: error instanceof BrokerError ? error.code : 'market_data_unavailable' } });
     }

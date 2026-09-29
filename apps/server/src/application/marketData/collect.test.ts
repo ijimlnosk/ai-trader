@@ -36,6 +36,7 @@ describe('daily snapshot collector', () => {
     const again = await createDailySnapshotCollector({ history: stubHistory(week, '2026-09-29T01:00:00.000Z'), snapshots, now })('005930');
     expect(again.status).toBe('unchanged');
     expect(snapshots.rows).toHaveLength(1);
+    expect(again.status === 'unchanged' && again.snapshot.confirmedAt).toBe('2026-09-29T01:00:00.000Z');
   });
 
   it('records provider revisions of earlier bars instead of hiding them', async () => {

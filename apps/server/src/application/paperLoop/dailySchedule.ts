@@ -6,6 +6,8 @@ import type { PaperLoopInput } from './input.ts';
 import { PaperLoopError } from './ports.ts';
 import type { PaperLoopPreparer } from './prepare.ts';
 
+const MORNING_COLLECT_START_MINUTE = 8 * 60;
+const MORNING_COLLECT_END_MINUTE = 8 * 60 + 50;
 const TICK_START_MINUTE = 9 * 60 + 5;
 const TICK_END_MINUTE = 15 * 60;
 const MAX_COLLECT_ATTEMPTS = 3;
@@ -33,8 +35,13 @@ export function createDailySchedule(deps: {
     tickDate: '', tracking: null as PaperLoopInput | null, halted: false };
 
   async function collectStep(at: Date, today: string) {
-    if (!deps.collect || completedSessionAt(at) !== today) return;
-    if (state.collectDate !== today) Object.assign(state, { collectDate: today, collectAttempts: 0, collectDone: false, nextCollectAt: 0 });
+    if (!deps.collect) return;
+    // Evening: archive today's bar. Morning of a session: re-collect to confirm yesterday's final bar.
+    const minute = seoulMinute(at);
+    const morning = krxSessionStatus(today) === 'session' && minute >= MORNING_COLLECT_START_MINUTE && minute < MORNING_COLLECT_END_MINUTE;
+    if (!morning && completedSessionAt(at) !== today) return;
+    const phase = `${today}:${morning ? 'morning' : 'evening'}`;
+    if (state.collectDate !== phase) Object.assign(state, { collectDate: phase, collectAttempts: 0, collectDone: false, nextCollectAt: 0 });
     if (state.collectDone || state.collectAttempts >= MAX_COLLECT_ATTEMPTS || at.getTime() < state.nextCollectAt) return;
     state.collectAttempts += 1;
     state.nextCollectAt = at.getTime() + COLLECT_RETRY_MS;

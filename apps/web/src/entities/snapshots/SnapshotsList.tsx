@@ -17,6 +17,7 @@ export function SnapshotsList() {
               <strong className="num">종가 {formatKrw(s.lastBar?.close)}</strong>
               <span className="subtle">거래량 {formatDecimal(s.lastBar?.volume)}주 · {s.bars}일치</span>
               <span className="subtle">수집 {formatSeoulTime(s.collectedAt)}</span>
+              {s.confirmedAt !== s.collectedAt && <span className="subtle">재확인 {formatSeoulTime(s.confirmedAt)}</span>}
             </div>
             <div className="row-end">
               {s.revisedDates.length ? <Chip tone="warn">정정 {s.revisedDates.length}건</Chip> : <Chip tone="neutral">정정 없음</Chip>}
@@ -24,7 +25,7 @@ export function SnapshotsList() {
             </div>
           </li>))}
         </ul>)}
-      <p className="footnote">원주가(수정주가 아님) 기준 · KIS 제공 데이터 · 전략은 이 데이터로만 판단해요.</p>
+      <p className="footnote">원주가(수정주가 아님) 기준 · KIS 제공 데이터 · 자동매매는 당일 아침 08시 이후 재확인된 데이터로만 판단해요.</p>
     </Card>
   );
 }

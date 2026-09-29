@@ -43,8 +43,25 @@ describe('daily schedule collection', () => {
     expect(s.report).toHaveBeenLastCalledWith('market_snapshot_failed', { attempt: '3' });
   });
 
+  it('re-collects once in the 08:00-08:50 Seoul window of a session to confirm the previous bar', async () => {
+    const s = setup('2026-09-29T22:59:00Z');
+    await s.step();
+    expect(s.collect).not.toHaveBeenCalled();
+    s.state.now = new Date('2026-09-29T23:00:00Z');
+    await s.step(); await s.step();
+    expect(s.collect).toHaveBeenCalledTimes(1);
+    s.state.now = new Date('2026-09-29T23:50:00Z');
+    const late = setup('2026-09-29T23:50:00Z');
+    await late.step();
+    expect(late.collect).not.toHaveBeenCalled();
+    // The same day's evening collection is a separate phase.
+    s.state.now = new Date('2026-09-30T09:30:00Z');
+    await s.step();
+    expect(s.collect).toHaveBeenCalledTimes(2);
+  });
+
   it('does not collect on closures or dates outside the calendar', async () => {
-    for (const iso of ['2026-10-05T10:00:00Z', '2026-09-27T10:00:00Z', '2026-12-31T10:00:00Z']) {
+    for (const iso of ['2026-10-05T10:00:00Z', '2026-09-27T10:00:00Z', '2026-12-31T10:00:00Z', '2026-10-04T23:10:00Z']) {
       const s = setup(iso);
       await s.step();
       expect(s.collect).not.toHaveBeenCalled();

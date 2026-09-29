@@ -42,6 +42,8 @@ export interface ConsoleSnapshot {
   datasetSha256: string;
   candlesSha256: string;
   revisedDates: string[];
+  /** Latest retrieval that returned exactly these candles. */
+  confirmedAt: string;
   lastBar: DailyCandle | null;
 }
 

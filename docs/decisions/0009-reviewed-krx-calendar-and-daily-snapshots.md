@@ -39,3 +39,14 @@ digest rechecked; a mismatch is an error, never usable data.
 `GET /api/v1/strategy/paper-loop/prepared` builds the tick input from the previous session's
 snapshot; the tick endpoint and its admission checks are unchanged. Scheduling collection and ticks
 automatically is separate work (plan phase B).
+
+## Amendment 2026-09-30: morning confirmation
+
+Observed 2026-09-29: the bar archived at 18:30 KST (close 273,000, volume 15,438,245) differed at
+18:45 KST (close 273,500, volume 15,444,018). The 18:30 assumption was wrong. The 9/28 bar pulled
+on the next morning matched later same-day pulls. Therefore the schedule also re-collects on each
+session morning (08:00–08:50 KST, at most three attempts). Identical candles update
+`confirmed_at` (migration 0007) instead of adding a row; revised candles create a new snapshot as
+before. Loop preparation requires the previous session's snapshot to have been confirmed at or
+after 08:00 KST on the session date, otherwise it skips the day (`snapshot_unconfirmed`). The
+latest snapshot for a date is chosen by confirmation time.

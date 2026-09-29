@@ -17,7 +17,7 @@ export function stubHistory(candles: DailyCandle[], retrievedAt = '2026-09-29T00
 
 export function createMemorySnapshotRepository(): DailySnapshotRepository & { rows: DailySnapshot[] } {
   const rows: DailySnapshot[] = [];
-  const newest = (list: DailySnapshot[]) => list.at(-1) ?? null;
+  const newest = (list: DailySnapshot[]) => [...list].sort((a, b) => a.confirmedAt.localeCompare(b.confirmedAt)).at(-1) ?? null;
   return {
     rows,
     latest: async (symbol) => newest(rows.filter((row) => row.symbol === symbol)),
@@ -25,8 +25,11 @@ export function createMemorySnapshotRepository(): DailySnapshotRepository & { ro
     async save(snapshot) {
       const existing = rows.find((row) => row.symbol === snapshot.symbol && row.through === snapshot.through
         && row.candlesSha256 === snapshot.candlesSha256);
-      if (existing) return { snapshot: existing, created: false };
-      const saved = { ...snapshot, id: `snapshot-${rows.length + 1}` };
+      if (existing) {
+        if (snapshot.collectedAt > existing.confirmedAt) existing.confirmedAt = snapshot.collectedAt;
+        return { snapshot: existing, created: false };
+      }
+      const saved = { ...snapshot, id: `snapshot-${rows.length + 1}`, confirmedAt: snapshot.collectedAt };
       rows.push(saved);
       return { snapshot: saved, created: true };
     },

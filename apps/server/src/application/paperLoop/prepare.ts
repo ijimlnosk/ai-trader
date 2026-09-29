@@ -5,7 +5,14 @@ import { paperLoopInputSchema, type PaperLoopInput } from './input.ts';
 
 export type PrepareResult =
   | { status: 'ready'; input: PaperLoopInput }
-  | { status: 'skipped'; reason: 'not_a_session' | 'calendar_unknown' | 'snapshot_missing' };
+  | { status: 'skipped'; reason: 'not_a_session' | 'calendar_unknown' | 'snapshot_missing' | 'snapshot_unconfirmed' };
+
+/**
+ * KIS revised a completed bar after 18:30 KST (2026-09-29), so only candles re-observed on the
+ * session morning are treated as final. An unconfirmed snapshot skips the day rather than trading.
+ */
+export const confirmationStart = (sessionDate: string) =>
+  Date.parse(`${sessionDate.slice(0, 4)}-${sessionDate.slice(4, 6)}-${sessionDate.slice(6)}T08:00:00+09:00`);
 
 /**
  * Builds the tick input for today's Seoul session from the archived snapshot of the previous
@@ -20,6 +27,7 @@ export function createPaperLoopPreparer(deps: { snapshots: DailySnapshotReposito
     if (!previous) return { status: 'skipped', reason: 'calendar_unknown' };
     const snapshot = await deps.snapshots.latestThrough('005930', previous);
     if (!snapshot) return { status: 'skipped', reason: 'snapshot_missing' };
+    if (Date.parse(snapshot.confirmedAt) < confirmationStart(sessionDate)) return { status: 'skipped', reason: 'snapshot_unconfirmed' };
     return { status: 'ready', input: paperLoopInputSchema.parse({
       runKey: `loop-${sessionDate}-${snapshot.datasetSha256.slice(0, 12)}`,
       sessionDate,

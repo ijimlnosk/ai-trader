@@ -42,7 +42,7 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
       SELECT id,'005930','BUY',2,70000,'KRW','historical-account','987','20260915','FILLED',2,140000,now() FROM p`);
     const ledgerMigration = await readFile(new URL('../../../drizzle/0002_lean_black_panther.sql', import.meta.url), 'utf8');
     await database.db.execute(sql.raw(ledgerMigration));
-    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth']) {
+    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth', '0007_market_snapshot_confirmation']) {
       await database.db.execute(sql.raw(await readFile(new URL(`../../../drizzle/${name}.sql`, import.meta.url), 'utf8')));
     }
   });
@@ -54,7 +54,8 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     const first = await createDailySnapshotCollector({ history: stubHistory(week), snapshots: repo, now })('000660');
     const again = await createDailySnapshotCollector({ history: stubHistory(week, '2026-09-29T01:00:00.000Z'), snapshots: repo, now })('000660');
     expect(first.status).toBe('saved'); expect(again.status).toBe('unchanged');
-    const revised = await createDailySnapshotCollector({ history: stubHistory([bar('20260922'), bar('20260923', '9'), bar('20260928')]),
+    expect(again.status === 'unchanged' && again.snapshot.confirmedAt).toBe('2026-09-29T01:00:00.000Z');
+    const revised = await createDailySnapshotCollector({ history: stubHistory([bar('20260922'), bar('20260923', '9'), bar('20260928')], '2026-09-29T02:00:00.000Z'),
       snapshots: createDailySnapshotRepository(database.db), now })('000660');
     expect(revised).toMatchObject({ status: 'saved', snapshot: { revisedDates: ['20260923'] } });
     expect((await repo.latestThrough('000660', '20260928'))?.id).toBe(revised.status === 'saved' ? revised.snapshot.id : '');

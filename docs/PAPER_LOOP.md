@@ -113,7 +113,9 @@ results; a revised bar is archived as a new snapshot, never merged silently. See
 ## Daily schedule (default off)
 
 `MARKET_DATA_SCHEDULE_ENABLED=true` runs order-free collection in the server process: on a reviewed
-session after 18:30 KST, at most three attempts ten minutes apart, then the day is skipped.
+session after 18:30 KST, and again on the next session morning 08:00–08:50 KST to confirm the
+previous bar; each phase makes at most three attempts ten minutes apart. The automatic tick only
+uses a snapshot confirmed that morning (see decision 0009 amendment); otherwise it skips the day.
 
 `PAPER_LOOP_SCHEDULE_ENABLED=true` additionally ticks automatically. It is refused at startup unless
 `PAPER_LOOP_ENABLED` and `PAPER_ORDER_EXECUTION_ENABLED` are true and no `PAPER_LOOP_TASK_FILE` is

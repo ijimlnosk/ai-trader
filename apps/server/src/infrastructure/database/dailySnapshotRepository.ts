@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import type { DailySnapshot, DailySnapshotRepository } from '../../application/marketData/ports.ts';
 import { datasetSchema } from '../../application/strategy/input.ts';
 import type { createDatabase } from './index.ts';
@@ -18,13 +18,14 @@ export function mapSnapshot(row: typeof snapshots.$inferSelect): DailySnapshot {
   }
   return { id: row.id, symbol: row.symbol, through: row.through, collectedAt: row.collectedAt.toISOString(),
     calendarVersion: row.calendarVersion, rawSha256: row.rawSha256, dataset, datasetSha256: row.datasetSha256,
-    candlesSha256: row.candlesSha256, revisedDates: row.revisedDates };
+    candlesSha256: row.candlesSha256, revisedDates: row.revisedDates,
+    confirmedAt: (row.confirmedAt && row.confirmedAt > row.collectedAt ? row.confirmedAt : row.collectedAt).toISOString() };
 }
 
 export function createDailySnapshotRepository(db: Database): DailySnapshotRepository {
   const newest = async (...conditions: ReturnType<typeof eq>[]) => {
     const [row] = await db.select().from(snapshots).where(and(...conditions))
-      .orderBy(desc(snapshots.createdAt), desc(snapshots.collectedAt)).limit(1);
+      .orderBy(desc(sql`GREATEST(${snapshots.confirmedAt}, ${snapshots.collectedAt})`), desc(snapshots.createdAt)).limit(1);
     return row ? mapSnapshot(row) : null;
   };
   return {
@@ -34,8 +35,10 @@ export function createDailySnapshotRepository(db: Database): DailySnapshotReposi
       const [row] = await db.insert(snapshots).values({ ...snapshot, collectedAt: new Date(snapshot.collectedAt) })
         .onConflictDoNothing().returning();
       if (row) return { snapshot: mapSnapshot(row), created: true };
-      const [existing] = await db.select().from(snapshots).where(and(eq(snapshots.symbol, snapshot.symbol),
-        eq(snapshots.through, snapshot.through), eq(snapshots.candlesSha256, snapshot.candlesSha256)));
+      // Identical candles re-observed: record the confirmation time, never the retrieval payload.
+      const [existing] = await db.update(snapshots).set({ confirmedAt: sql`GREATEST(${snapshots.confirmedAt}, ${new Date(snapshot.collectedAt)})` })
+        .where(and(eq(snapshots.symbol, snapshot.symbol), eq(snapshots.through, snapshot.through),
+          eq(snapshots.candlesSha256, snapshot.candlesSha256))).returning();
       if (!existing) throw new Error('Market snapshot persistence conflict');
       return { snapshot: mapSnapshot(existing), created: false };
     },

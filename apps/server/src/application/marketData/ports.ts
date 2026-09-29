@@ -30,11 +30,14 @@ export interface DailySnapshot {
   candlesSha256: string;
   /** Dates whose bar differs from the previous snapshot of this symbol, recorded not hidden. */
   revisedDates: string[];
+  /** Latest retrieval time that returned exactly these candles (at least collectedAt). */
+  confirmedAt: string;
 }
 
 export interface DailySnapshotRepository {
   latest(symbol: string): Promise<DailySnapshot | null>;
   latestThrough(symbol: string, through: string): Promise<DailySnapshot | null>;
   /** Returns the existing row when the same symbol/through/candles digest is already archived. */
-  save(snapshot: Omit<DailySnapshot, 'id'>): Promise<{ snapshot: DailySnapshot; created: boolean }>;
+  save(snapshot: Omit<DailySnapshot, 'id' | 'confirmedAt'>): Promise<{ snapshot: DailySnapshot; created: boolean }>;
+  /** latestThrough orders by confirmedAt, so a re-confirmed earlier row wins over an unconfirmed revision. */
 }

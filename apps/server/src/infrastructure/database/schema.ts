@@ -179,6 +179,8 @@ export const marketDailySnapshots = pgTable('market_daily_snapshots', {
   datasetSha256: text('dataset_sha256').notNull(),
   candlesSha256: text('candles_sha256').notNull(),
   revisedDates: jsonb('revised_dates').$type<string[]>().notNull(),
+  // Latest retrieval that returned exactly these candles; null means only the first retrieval.
+  confirmedAt: instant('confirmed_at'),
   createdAt: instant('created_at').notNull().defaultNow(),
 }, (t) => [
   uniqueIndex('market_daily_snapshot_data_idx').on(t.symbol, t.through, t.candlesSha256),

@@ -50,6 +50,13 @@
       "when": 1790667125707,
       "tag": "0006_console_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790696243856,
+      "tag": "0007_market_snapshot_confirmation",
+      "breakpoints": true
     }
   ]
 }
