@@ -386,3 +386,13 @@ them. `application/paperLoop/dailySchedule` (driven by `app/dailyScheduleTimer`)
 collection and a once-per-session tick in-process behind separate default-off flags; the tick flag
 requires both loop and execution opt-ins. See [decision 0009](decisions/0009-reviewed-krx-calendar-and-daily-snapshots.md)
 and [runbook](PAPER_LOOP.md).
+
+## Read-only web console
+
+`apps/web` (Next.js App Router, TanStack Query) is a loopback-only operator console. The browser
+calls same-origin `/api/console/<name>`; a Next.js route handler forwards a fixed allow-list of GET
+routes to the API with `CONSOLE_READ_TOKEN`, which authorizes only `GET /api/v1/console/*` and must
+differ from `ORDER_API_TOKEN`. The web container never receives the order token. Shared response
+types live in `packages/contracts` (`console.ts`); ESLint forbids web imports of server code.
+Server-side, `application/console` maps account-scoped repository reads to those contracts. See
+[console runbook](CONSOLE.md).
