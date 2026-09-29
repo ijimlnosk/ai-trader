@@ -56,3 +56,12 @@ with `pg_restore --list` ok, before/after ledger snapshots). `.env` and Compose 
   enabling requires adding them there. No `Daily schedule` log events after start.
 - The first collect after this restart returned `unchanged` (same snapshot id) without timeout.
 - Ledger hashes and loop row count unchanged.
+
+## Collection schedule enabled (14:49 KST)
+
+Order-free collection only. Evidence: `/home/jinsol/ai-trader-backups/collection-enable-20260929`
+(`.env` and Compose backups). The server-specific Compose file now passes
+`MARKET_DATA_SCHEDULE_ENABLED` and `PAPER_LOOP_SCHEDULE_ENABLED` (default `false`); `.env` adds
+`MARKET_DATA_SCHEDULE_ENABLED=true`. Runtime after recreation: paper, live/execution/loop false,
+`MARKET_DATA_SCHEDULE_ENABLED=true`, `PAPER_LOOP_SCHEDULE_ENABLED=false`, healthy, no schedule
+events before 18:30 KST (expected). Rollback: restore both backups and recreate the server.
