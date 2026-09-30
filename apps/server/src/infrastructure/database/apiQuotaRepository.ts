@@ -8,17 +8,23 @@ type Database = ReturnType<typeof createDatabase>['db'];
 /** Both day and month rows are locked and checked in one transaction before one call is reserved. */
 export function createApiQuotaRepository(db: Database): ApiQuota {
   return {
-    async consume(provider, day, month, caps) {
+    async consume(provider, day, month, caps, amount = 1) {
+      if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Invalid quota amount');
       const periods = [`d:${day}`, `m:${month}`];
       return db.transaction(async (tx) => {
         await tx.insert(usage).values(periods.map((period) => ({ provider, period, used: 0 }))).onConflictDoNothing();
         const rows = await tx.select().from(usage).where(and(eq(usage.provider, provider), inArray(usage.period, periods))).for('update');
         const used = (period: string) => rows.find((row) => row.period === period)?.used ?? Number.POSITIVE_INFINITY;
-        if (used(periods[0]!) >= caps.daily || used(periods[1]!) >= caps.monthly) return false;
-        await tx.update(usage).set({ used: sql`${usage.used} + 1`, updatedAt: new Date() })
+        if (used(periods[0]!) + amount > caps.daily || used(periods[1]!) + amount > caps.monthly) return false;
+        await tx.update(usage).set({ used: sql`${usage.used} + ${amount}`, updatedAt: new Date() })
           .where(and(eq(usage.provider, provider), inArray(usage.period, periods)));
         return true;
       });
+    },
+    async refund(provider, day, month, amount) {
+      if (!Number.isSafeInteger(amount) || amount <= 0) return;
+      await db.update(usage).set({ used: sql`GREATEST(0, ${usage.used} - ${amount})`, updatedAt: new Date() })
+        .where(and(eq(usage.provider, provider), inArray(usage.period, [`d:${day}`, `m:${month}`])));
     },
     async usage(provider, day, month) {
       const rows = await db.select().from(usage).where(and(eq(usage.provider, provider), inArray(usage.period, [`d:${day}`, `m:${month}`])));

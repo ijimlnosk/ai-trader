@@ -41,12 +41,16 @@ import { createUniverseDatasetBuilder } from '../application/marketData/universe
 import { createSessionPlanRunner } from '../application/strategy/sessionPlan.ts';
 import { createMomentumPlanRunner } from '../application/strategy/momentumPlan.ts';
 import { createMomentumExecutor } from '../application/strategy/momentumExecution.ts';
+import { AI_COST_PROVIDER, createNewsScreener, type AssessmentRepository } from '../application/analysis/screen.ts';
+import { seoulOrderDate } from '../domain/orders.ts';
+import type { NewsAssessor } from '../application/analysis/ports.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
   dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
     dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string;
-    tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota },
+    tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
+    newsAssessor?: NewsAssessor; assessments?: AssessmentRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -85,7 +89,14 @@ export function createApp(
   const collect = snapshots && dependencies.dailyHistory ? createDailySnapshotCollector({ history: dependencies.dailyHistory, snapshots }) : undefined;
   const prepare = snapshots ? createPaperLoopPreparer({ snapshots }) : undefined;
   registerMarketDataRoutes(app, { apiToken: environment.ORDER_API_TOKEN, collect, prepare });
-  const consoleQueries = dependencies.consoleRead ? createConsoleQueries({ repository: dependencies.consoleRead, flags: {
+  const aiCaps = { daily: Math.round(environment.AI_DAILY_BUDGET_USD * 1e6), monthly: Math.round(environment.AI_MONTHLY_BUDGET_USD * 1e6) };
+  const aiUsage = dependencies.apiQuota && dependencies.newsAssessor ? async () => {
+    const day = seoulOrderDate(new Date().toISOString());
+    const used = await dependencies.apiQuota!.usage(AI_COST_PROVIDER, day, day.slice(0, 6));
+    return { model: dependencies.newsAssessor!.model, dailyMicroUsd: used.daily, monthlyMicroUsd: used.monthly,
+      dailyCapMicroUsd: aiCaps.daily, monthlyCapMicroUsd: aiCaps.monthly };
+  } : undefined;
+  const consoleQueries = dependencies.consoleRead ? createConsoleQueries({ repository: dependencies.consoleRead, assessments: dependencies.assessments, aiUsage, flags: {
     tradingMode: environment.BROKER_MODE, liveTradingEnabled: environment.LIVE_TRADING_ENABLED,
     paperExecutionEnabled: environment.PAPER_ORDER_EXECUTION_ENABLED, paperLoopEnabled: environment.PAPER_LOOP_ENABLED,
     killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED, marketDataScheduleEnabled: environment.MARKET_DATA_SCHEDULE_ENABLED,
@@ -112,11 +123,16 @@ export function createApp(
     createSessionPlanRunner({ scheduler: strategyScheduler, build: universeDataset }),
   ] : undefined;
   if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED || environment.NEWS_SCHEDULE_ENABLED
-    || environment.UNIVERSE_PLAN_SCHEDULE_ENABLED) {
+    || environment.UNIVERSE_PLAN_SCHEDULE_ENABLED || environment.NEWS_ANALYSIS_ENABLED) {
     if (environment.UNIVERSE_PLAN_SCHEDULE_ENABLED && !planRunners) throw new Error('Plan schedule dependencies required');
     const momentumExecutor = environment.MOMENTUM_EXECUTION_ENABLED && dependencies.orders && dependencies.consoleRead && controls
       ? createMomentumExecutor({ plans: dependencies.consoleRead, orders: dependencies.orders, isEnabled: controls.isAutoTradingEnabled }) : undefined;
     if (environment.MOMENTUM_EXECUTION_ENABLED && !momentumExecutor) throw new Error('Momentum execution dependencies required');
+    const screenNews = environment.NEWS_ANALYSIS_ENABLED && dependencies.newsAssessor && dependencies.newsRepository && dependencies.apiQuota
+      && dependencies.assessments && dependencies.consoleRead ? createNewsScreener({ assessor: dependencies.newsAssessor,
+        news: dependencies.newsRepository, quota: dependencies.apiQuota, repository: dependencies.assessments, plans: dependencies.consoleRead,
+        caps: aiCaps }) : undefined;
+    if (environment.NEWS_ANALYSIS_ENABLED && !screenNews) throw new Error('News analysis dependencies required');
     if (environment.NEWS_SCHEDULE_ENABLED && !collectNews) throw new Error('News schedule dependencies required');
     if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick || !controls))) {
       throw new Error('Daily schedule dependencies required');
@@ -127,6 +143,7 @@ export function createApp(
       news: environment.NEWS_SCHEDULE_ENABLED ? collectNews : undefined,
       plans: environment.UNIVERSE_PLAN_SCHEDULE_ENABLED ? planRunners : undefined,
       executeMomentum: environment.MOMENTUM_EXECUTION_ENABLED ? momentumExecutor : undefined,
+      screenNews,
       loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick && controls ? { prepare, tick, isEnabled: controls.isAutoTradingEnabled } : undefined });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });

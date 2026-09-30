@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { KIS_PAPER_URL } from '../infrastructure/broker/kis/index.ts';
 
 const optionalSecret = z.string().trim().transform((value) => value || undefined).optional();
+const usdBudget = (maximum: number) => z.string().regex(/^\d+(\.\d{1,2})?$/).transform(Number).pipe(z.number().positive().max(maximum));
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -33,6 +34,13 @@ const schema = z.object({
   NEWS_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   UNIVERSE_PLAN_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   MOMENTUM_EXECUTION_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  ANTHROPIC_API_KEY: optionalSecret,
+  // AI news screening of momentum candidates; record-only until enforcement is separately approved.
+  NEWS_ANALYSIS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  NEWS_ANALYSIS_MODEL: z.enum(['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-4-5']).default('claude-opus-5-5'),
+  // USD caps (owner limit: about KRW 10,000/month). Hard maxima: $1/day, $7/month.
+  AI_DAILY_BUDGET_USD: usdBudget(1).default(0.5),
+  AI_MONTHLY_BUDGET_USD: usdBudget(7).default(6.5),
   TRADING_KILL_SWITCH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((value, ctx) => {
   if ((value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_ENABLED) && (!value.ORDER_API_TOKEN || value.ORDER_API_TOKEN.length < 32)) {
@@ -49,6 +57,9 @@ const schema = z.object({
   if (value.MOMENTUM_EXECUTION_ENABLED && (!value.PAPER_ORDER_EXECUTION_ENABLED || !value.UNIVERSE_PLAN_SCHEDULE_ENABLED
     || value.PAPER_LOOP_SCHEDULE_ENABLED || value.PAPER_LOOP_TASK_FILE)) {
     ctx.addIssue({ code: 'custom', path: ['MOMENTUM_EXECUTION_ENABLED'], message: 'Requires execution and plan schedule, excludes the EMA loop schedule' });
+  }
+  if (value.NEWS_ANALYSIS_ENABLED && (!value.ANTHROPIC_API_KEY || !value.UNIVERSE_PLAN_SCHEDULE_ENABLED)) {
+    ctx.addIssue({ code: 'custom', path: ['NEWS_ANALYSIS_ENABLED'], message: 'Requires ANTHROPIC_API_KEY and the plan schedule' });
   }
   // The automatic tick is a third deliberate opt-in on top of both loop and execution opt-ins.
   if (value.PAPER_LOOP_SCHEDULE_ENABLED && (!value.PAPER_LOOP_ENABLED || !value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_TASK_FILE)) {

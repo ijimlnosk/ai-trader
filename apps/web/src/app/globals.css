@@ -206,3 +206,5 @@ button { font: inherit; color: inherit; }
 .segmented { display: flex; gap: 4px; padding: 3px; background: var(--neutral-soft); border-radius: 10px; margin-bottom: 10px; }
 .segment { flex: 1; min-height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--text-2); font-weight: 600; font-size: 13px; cursor: pointer; }
 .segment[aria-selected='true'] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+
+.news-verdict { display: grid; gap: 4px; justify-items: start; margin-top: 4px; }

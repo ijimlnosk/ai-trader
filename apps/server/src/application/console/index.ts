@@ -2,6 +2,7 @@ import type { ConsoleLoopRun, ConsolePlan, ConsolePlanResponse, ConsoleSnapshot,
 import { planSession } from '../../domain/strategy/plan.ts';
 import { UNIVERSE, universeName } from '../../domain/market/universe.ts';
 import type { StrategyRunRecord } from '../scheduler/index.ts';
+import type { AssessmentRepository } from '../analysis/screen.ts';
 import { KRX_CALENDAR } from '../../domain/scheduler/krxCalendar.ts';
 import type { StoredOrder } from '../../domain/orders.ts';
 import type { DailySnapshot } from '../marketData/ports.ts';
@@ -39,7 +40,8 @@ function snapshot(item: DailySnapshot): ConsoleSnapshot {
     candlesSha256: item.candlesSha256, revisedDates: item.revisedDates, confirmedAt: item.confirmedAt, lastBar: item.dataset.series[0]?.candles.at(-1) ?? null };
 }
 
-export function createConsoleQueries(deps: { repository: ConsoleReadRepository; flags: ConsoleFlags; now?: () => Date }) {
+export function createConsoleQueries(deps: { repository: ConsoleReadRepository; flags: ConsoleFlags; now?: () => Date;
+  assessments?: AssessmentRepository | undefined; aiUsage?: (() => Promise<ConsolePlanResponse['aiUsage']>) | undefined }) {
   const now = deps.now ?? (() => new Date());
   return {
     status: (): ConsoleStatusResponse => ({ checkedAt: now().toISOString(), ...deps.flags,
@@ -54,12 +56,15 @@ export function createConsoleQueries(deps: { repository: ConsoleReadRepository; 
         const evaluations = run?.result.evaluations ?? [];
         if (!run || evaluations.length === 0) continue;
         const plan = planSession(evaluations.map((evaluation) => evaluation.signal), evaluations[0]!.context);
+        const screened = strategyId === 'momentum-rotation' && deps.assessments ? await deps.assessments.listForSession(run.sessionDate) : [];
         plans.push({ strategyId, label, runKey: run.runKey, sessionDate: run.sessionDate, createdAt: run.createdAt, scanned: plan.scanned,
         universeSize: UNIVERSE.symbols.length, reasons: plan.reasons, items: plan.items.map((item) => ({ rank: item.rank,
           symbol: item.symbol, name: universeName(item.symbol) ?? item.symbol, side: item.side, quantity: item.quantity,
-          estimatedPrice: item.estimatedPrice, reason: item.reason, approved: item.decision.approved, rejections: [...item.decision.reasons] })) });
+          estimatedPrice: item.estimatedPrice, reason: item.reason, approved: item.decision.approved, rejections: [...item.decision.reasons],
+          news: ((record) => record ? { status: record.status, verdict: record.verdict, summary: record.assessment?.summary ?? null,
+            categories: [...(record.assessment?.categories ?? [])] } : null)(screened.find((record) => record.symbol === item.symbol)) })) });
       }
-      return { plans };
+      return { plans, aiUsage: deps.aiUsage ? await deps.aiUsage() : null };
     },
   };
 }

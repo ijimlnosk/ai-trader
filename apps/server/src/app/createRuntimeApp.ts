@@ -2,6 +2,8 @@ import type { AuthService } from '../application/auth/index.ts';
 import type { TradingControlRepository } from '../application/controls/index.ts';
 import type { ApiQuota, NewsRepository } from '../application/news/ports.ts';
 import { createNaverNewsSearch } from '../infrastructure/news/naverNews.ts';
+import { createClaudeNewsAssessor } from '../infrastructure/ai/claudeNewsAssessor.ts';
+import type { AssessmentRepository } from '../application/analysis/screen.ts';
 import type { PaperLoopRepository } from '../application/paperLoop/ports.ts';
 import type { DatabaseHealth } from '../application/health.ts';
 import type { MarketBroker } from '../application/market.ts';
@@ -23,7 +25,7 @@ export function createRuntimeApp(
   marketBroker?: MarketBroker, accountBroker?: AccountBroker,
   orderRepository?: OrderRepository, strategyRunRepository?: StrategyRunRepository, paperLoopRepository?: PaperLoopRepository,
   dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository, auth?: AuthService, executionAccount?: string, tradingControls?: TradingControlRepository,
-  newsRepository?: NewsRepository, apiQuota?: ApiQuota,
+  newsRepository?: NewsRepository, apiQuota?: ApiQuota, assessments?: AssessmentRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
@@ -40,7 +42,8 @@ export function createRuntimeApp(
   const app = createApp(environment, database, {
     ...(auth ? { auth } : {}),
     ...(tradingControls ? { tradingControls } : {}),
-    ...(newsRepository ? { newsRepository } : {}), ...(apiQuota ? { apiQuota } : {}),
+    ...(newsRepository ? { newsRepository } : {}), ...(apiQuota ? { apiQuota } : {}), ...(assessments ? { assessments } : {}),
+    ...(environment.ANTHROPIC_API_KEY ? { newsAssessor: createClaudeNewsAssessor({ apiKey: environment.ANTHROPIC_API_KEY, model: environment.NEWS_ANALYSIS_MODEL, effort: 'low' }) } : {}),
     ...(environment.NAVER_CLIENT_ID && environment.NAVER_CLIENT_SECRET
       ? { newsSearch: createNaverNewsSearch({ clientId: environment.NAVER_CLIENT_ID, clientSecret: environment.NAVER_CLIENT_SECRET }) } : {}),
     ...(executionAccount ? { executionAccount } : {}),

@@ -5,6 +5,7 @@ import { createStrategyRunRepository } from './strategyRunRepository.ts';
 import { createTradingControlRepository } from './tradingControlRepository.ts';
 import { createApiQuotaRepository } from './apiQuotaRepository.ts';
 import { createNewsRepository } from './newsRepository.ts';
+import { createAssessmentRepository } from './assessmentRepository.ts';
 import { createDailySnapshotCollector } from '../../application/marketData/collect.ts';
 import { createPaperLoopPreparer } from '../../application/paperLoop/prepare.ts';
 import { bar, stubHistory } from '../../../test/marketDataFixtures.ts';
@@ -46,7 +47,7 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
       SELECT id,'005930','BUY',2,70000,'KRW','historical-account','987','20260915','FILLED',2,140000,now() FROM p`);
     const ledgerMigration = await readFile(new URL('../../../drizzle/0002_lean_black_panther.sql', import.meta.url), 'utf8');
     await database.db.execute(sql.raw(ledgerMigration));
-    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth', '0007_market_snapshot_confirmation', '0008_trading_controls', '0009_news_and_api_usage']) {
+    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth', '0007_market_snapshot_confirmation', '0008_trading_controls', '0009_news_and_api_usage', '0010_news_assessments']) {
       await database.db.execute(sql.raw(await readFile(new URL(`../../../drizzle/${name}.sql`, import.meta.url), 'utf8')));
     }
   });
@@ -125,6 +126,23 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     expect((await createConsoleReadRepository(database.db, account).latestPlanRun('plan-2'))?.runKey).toBe('plan-20260930-bbb');
     expect((await createConsoleReadRepository(database.db, account).latestPlanRun('plan-momentum-'))?.runKey).toBe('plan-momentum-20260930-ccc');
     expect(await createConsoleReadRepository(database.db, randomUUID()).latestPlanRun('plan-2')).toBeNull();
+  });
+  it('cost budgets reserve amounts under concurrency, refund, and assessments are one per session and symbol', async () => {
+    const provider = `cost-${randomUUID()}`;
+    const quota = createApiQuotaRepository(database.db);
+    const granted = await Promise.all(Array.from({ length: 10 }, () => createApiQuotaRepository(database.db).consume(provider, '20261007', '202610', { daily: 250000, monthly: 6500000 }, 60000)));
+    expect(granted.filter(Boolean)).toHaveLength(4);
+    await quota.refund(provider, '20261007', '202610', 38200);
+    expect(await quota.usage(provider, '20261007', '202610')).toEqual({ daily: 201800, monthly: 201800 });
+    await quota.refund(provider, '20261007', '202610', 999999999);
+    expect(await quota.usage(provider, '20261007', '202610')).toEqual({ daily: 0, monthly: 0 });
+    const repo = createAssessmentRepository(database.db);
+    const record = { sessionDate: '20261007', symbol: randomUUID().slice(0, 6), model: 'claude-opus-5-5', status: 'assessed' as const, verdict: 'veto' as const,
+      assessment: { verdict: 'veto' as const, categories: ['litigation' as const], confidence: 0.9, summary: '소송', evidence: [0] }, reason: null,
+      articleCount: 3, inputSha256: 'a'.repeat(64), inputTokens: 4600, outputTokens: 170, costMicroUsd: 21800 };
+    await repo.save(record);
+    await repo.save({ ...record, verdict: 'clear', assessment: { ...record.assessment, verdict: 'clear' } });
+    expect(await repo.find('20261007', record.symbol)).toMatchObject({ verdict: 'veto', costMicroUsd: 21800 });
   });
   it('preserves existing rows after expansion', async () => {
     const legacy = await database.db.select().from(orders).where(isNull(orders.executionAccount));

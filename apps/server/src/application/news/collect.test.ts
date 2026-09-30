@@ -1,29 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ApiQuota, NewsRepository, NewsSearch } from './ports.ts';
+import type { NewsRepository, NewsSearch } from './ports.ts';
+import { memoryQuota } from '../../../test/quotaFixtures.ts';
 import { createNewsCollector } from './collect.ts';
 
-function memoryQuota(): ApiQuota & { used: Map<string, number> } {
-  const used = new Map<string, number>();
-  return {
-    used,
-    async consume(provider, day, month, caps) {
-      const [d, m] = [`${provider}:d:${day}`, `${provider}:m:${month}`];
-      if ((used.get(d) ?? 0) >= caps.daily || (used.get(m) ?? 0) >= caps.monthly) return false;
-      used.set(d, (used.get(d) ?? 0) + 1); used.set(m, (used.get(m) ?? 0) + 1);
-      return true;
-    },
-    async usage(provider, day, month) {
-      return { daily: used.get(`${provider}:d:${day}`) ?? 0, monthly: used.get(`${provider}:m:${month}`) ?? 0 };
-    },
-  };
-}
 const article = (n: number) => ({ title: `t${n}`, description: 'd', link: `https://news.example/${n}`, originalLink: null, publishedAt: '2026-09-30T00:00:00.000Z' });
 const symbols = [['005930', '삼성전자'], ['000660', 'SK하이닉스'], ['373220', 'LG에너지솔루션']] as const;
 
 function setup(caps = { daily: 100, monthly: 1000 }) {
   const quota = memoryQuota();
   const search = { provider: 'naver-news', search: vi.fn<NewsSearch['search']>(async () => [article(1), article(2)]) };
-  const news = { save: vi.fn<NewsRepository['save']>(async (items) => items.length), recent: vi.fn() };
+  const news = { save: vi.fn<NewsRepository['save']>(async (items) => items.length), recent: vi.fn(), recentForSymbol: vi.fn() };
   const collect = createNewsCollector({ search, quota, news, caps, symbols, now: () => new Date('2026-09-30T00:00:00Z') });
   return { quota, search, news, collect };
 }

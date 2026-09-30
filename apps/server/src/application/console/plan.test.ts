@@ -21,11 +21,11 @@ it('derives the ranked plan with names and risk results from the stored run', as
   expect(response.plans[0]).toMatchObject({ strategyId: 'ema-cross', runKey: 'plan-20260930-abc', sessionDate: '20260930', scanned: 3, universeSize: 54,
     reasons: { BULLISH_CROSS: 2, NO_ENTRY: 1 } });
   expect(response.plans[0]!.items).toEqual([
-    { rank: 1, symbol: '035420', name: 'NAVER', side: 'BUY', quantity: '2', estimatedPrice: '100000', reason: 'BULLISH_CROSS', approved: true, rejections: [] },
-    { rank: 2, symbol: '000660', name: 'SK하이닉스', side: 'BUY', quantity: '2', estimatedPrice: '100000', reason: 'BULLISH_CROSS', approved: true, rejections: [] },
+    { rank: 1, symbol: '035420', name: 'NAVER', side: 'BUY', quantity: '2', estimatedPrice: '100000', reason: 'BULLISH_CROSS', approved: true, rejections: [], news: null },
+    { rank: 2, symbol: '000660', name: 'SK하이닉스', side: 'BUY', quantity: '2', estimatedPrice: '100000', reason: 'BULLISH_CROSS', approved: true, rejections: [], news: null },
   ]);
 });
 
 it('returns no plans without plan runs', async () => {
-  expect(await createConsoleQueries({ repository: repository(null), flags }).plan()).toEqual({ plans: [] });
+  expect(await createConsoleQueries({ repository: repository(null), flags }).plan()).toEqual({ plans: [], aiUsage: null });
 });

@@ -256,3 +256,22 @@ export const newsItems = pgTable('news_items', {
   publishedAt: instant('published_at').notNull(),
   collectedAt: instant('collected_at').notNull(),
 }, (t) => [uniqueIndex('news_items_symbol_link_idx').on(t.symbol, t.link), index('news_items_published_idx').on(t.publishedAt)]);
+
+/** One AI news screening per session and symbol; order-free until enforcement is enabled. */
+export const newsAssessments = pgTable('news_assessments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  sessionDate: text('session_date').notNull(),
+  symbol: text('symbol').notNull(),
+  model: text('model').notNull(),
+  status: text('status').notNull(),
+  verdict: text('verdict'),
+  assessment: jsonb('assessment'),
+  reason: text('reason'),
+  articleCount: integer('article_count').notNull(),
+  inputSha256: text('input_sha256').notNull(),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  costMicroUsd: integer('cost_micro_usd'),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [uniqueIndex('news_assessments_session_symbol_idx').on(t.sessionDate, t.symbol),
+  check('news_assessments_status', sql`${t.status} IN ('assessed','unavailable','no_news','budget_exhausted')`)]);

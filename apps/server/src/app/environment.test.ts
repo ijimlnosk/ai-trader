@@ -63,3 +63,13 @@ it('momentum execution needs paper execution and the plan schedule and excludes 
   expect(parseEnvironment(valid)).toMatchObject({ MOMENTUM_EXECUTION_ENABLED: true, LIVE_TRADING_ENABLED: false });
   expect(() => parseEnvironment({ ...valid, PAPER_LOOP_ENABLED: 'true', PAPER_LOOP_SCHEDULE_ENABLED: 'true' })).toThrow('MOMENTUM_EXECUTION_ENABLED');
 });
+
+it('AI news analysis needs a key and the plan schedule, and budgets cannot exceed the owner limit', () => {
+  expect(parseEnvironment(base)).toMatchObject({ NEWS_ANALYSIS_ENABLED: false, NEWS_ANALYSIS_MODEL: 'claude-opus-5-5', AI_DAILY_BUDGET_USD: 0.5, AI_MONTHLY_BUDGET_USD: 6.5 });
+  expect(() => parseEnvironment({ ...base, NEWS_ANALYSIS_ENABLED: 'true' })).toThrow('NEWS_ANALYSIS_ENABLED');
+  expect(parseEnvironment({ ...base, NEWS_ANALYSIS_ENABLED: 'true', ANTHROPIC_API_KEY: 'sk-ant-test', UNIVERSE_PLAN_SCHEDULE_ENABLED: 'true' }).NEWS_ANALYSIS_ENABLED).toBe(true);
+  expect(parseEnvironment({ ...base, AI_MONTHLY_BUDGET_USD: '7' }).AI_MONTHLY_BUDGET_USD).toBe(7);
+  for (const [key, value] of [['AI_MONTHLY_BUDGET_USD', '7.01'], ['AI_DAILY_BUDGET_USD', '1.5'], ['AI_DAILY_BUDGET_USD', '0'], ['NEWS_ANALYSIS_MODEL', 'gpt-5']]) {
+    expect(() => parseEnvironment({ ...base, [key!]: value })).toThrow(key!);
+  }
+});

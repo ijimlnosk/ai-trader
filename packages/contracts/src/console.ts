@@ -70,7 +70,13 @@ export interface ConsolePlan {
   strategyId: string; label: string; runKey: string; sessionDate: string; createdAt: string; scanned: number; universeSize: number;
   reasons: Record<string, number>;
   items: { rank: number; symbol: string; name: string; side: 'BUY' | 'SELL'; quantity: string; estimatedPrice: string;
-    reason: string; approved: boolean; rejections: string[] }[];
+    reason: string; approved: boolean; rejections: string[];
+    /** AI news screening for this session (record-only), when available. */
+    news: { status: 'assessed' | 'unavailable' | 'no_news' | 'budget_exhausted'; verdict: 'clear' | 'caution' | 'veto' | null;
+      summary: string | null; categories: string[] } | null }[];
 }
-/** Latest plan per strategy, primary strategy first. */
-export interface ConsolePlanResponse { plans: ConsolePlan[] }
+/** Latest plan per strategy, primary strategy first; AI spend in micro-USD against the caps. */
+export interface ConsolePlanResponse {
+  plans: ConsolePlan[];
+  aiUsage: { model: string; dailyMicroUsd: number; monthlyMicroUsd: number; dailyCapMicroUsd: number; monthlyCapMicroUsd: number } | null;
+}

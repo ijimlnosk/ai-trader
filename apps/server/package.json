@@ -19,8 +19,9 @@
   },
   "dependencies": {
     "@ai-trader/contracts": "workspace:*",
-    "fastify": "5.12.4",
+    "@anthropic-ai/sdk": "0.129.0",
     "drizzle-orm": "0.45.2",
+    "fastify": "5.12.4",
     "pg": "8.23.0",
     "zod": "4.6.5"
   },

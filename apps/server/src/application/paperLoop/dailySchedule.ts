@@ -8,6 +8,7 @@ import type { PaperLoopPreparer } from './prepare.ts';
 import type { NewsCollector } from '../news/collect.ts';
 import type { SessionPlanRunner } from '../strategy/sessionPlan.ts';
 import type { MomentumExecutor } from '../strategy/momentumExecution.ts';
+import type { NewsScreener } from '../analysis/screen.ts';
 
 const MORNING_COLLECT_START_MINUTE = 8 * 60;
 const MORNING_COLLECT_END_MINUTE = 8 * 60 + 50;
@@ -40,6 +41,8 @@ export function createDailySchedule(deps: {
   plans?: readonly SessionPlanRunner[] | undefined;
   /** Executes today's momentum plan item by item; repeated every step until done or halted. */
   executeMomentum?: MomentumExecutor | undefined;
+  /** AI news screening of today's momentum candidates, once per session after the plan exists. */
+  screenNews?: NewsScreener | undefined;
   /** isEnabled is the owner's pause/resume control; failures to read it count as paused. */
   loop?: { prepare: PaperLoopPreparer; tick: PaperLoop; isEnabled: () => Promise<boolean> } | undefined;
   report: ScheduleReport; now?: () => Date;
@@ -47,7 +50,7 @@ export function createDailySchedule(deps: {
   const now = deps.now ?? (() => new Date());
   const symbols = deps.symbols ?? ['005930'];
   const state = { collectDate: '', collectAttempts: 0, pending: [] as string[], nextCollectAt: 0, newsDate: '', planDate: '',
-    planPending: [] as number[], planAttempts: 0, nextPlanAt: 0, executionDate: '', executionStatus: '',
+    planPending: [] as number[], planAttempts: 0, nextPlanAt: 0, executionDate: '', executionStatus: '', screenDate: '', screenDone: false, screenAttempts: 0,
     tickDate: '', pausedDate: '', tracking: null as PaperLoopInput | null, halted: false };
 
   async function collectStep(at: Date, today: string) {
@@ -89,6 +92,20 @@ export function createDailySchedule(deps: {
           ? { runKey: result.runKey, scanned: String(result.scanned), excluded: String(result.excluded) } : { reason: result.reason });
       } catch { deps.report('session_plan_failed', { attempt: String(state.planAttempts) }); }
     }
+  }
+
+  async function screenStep(at: Date, today: string) {
+    const minute = seoulMinute(at);
+    if (!deps.screenNews || krxSessionStatus(today) !== 'session' || minute < TICK_START_MINUTE || minute >= TICK_END_MINUTE) return;
+    if (state.screenDate !== today) Object.assign(state, { screenDate: today, screenDone: false, screenAttempts: 0 });
+    if (state.screenDone || state.screenAttempts >= MAX_COLLECT_ATTEMPTS) return;
+    try {
+      const result = await deps.screenNews();
+      if (!result) return; // no plan yet; try again next step
+      state.screenDone = true;
+      deps.report('news_screen_done', { targets: String(result.targets), assessed: String(result.assessed), unavailable: String(result.unavailable),
+        noNews: String(result.noNews), skipped: String(result.skipped), budgetExhausted: String(result.budgetExhausted), costMicroUsd: String(result.costMicroUsd) });
+    } catch { state.screenAttempts += 1; deps.report('news_screen_failed', { attempt: String(state.screenAttempts) }); }
   }
 
   async function executionStep(at: Date, today: string) {
@@ -162,6 +179,7 @@ export function createDailySchedule(deps: {
     await collectStep(at, today);
     await tickStep(at, today);
     await planStep(at, today);
+    await screenStep(at, today);
     await executionStep(at, today);
     await newsStep(at, today);
   };
