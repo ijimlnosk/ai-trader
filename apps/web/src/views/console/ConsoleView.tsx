@@ -7,6 +7,7 @@ import { HoldingsList } from '@/entities/portfolio/HoldingsList';
 import { PortfolioSummary } from '@/entities/portfolio/PortfolioSummary';
 import { SnapshotsList } from '@/entities/snapshots/SnapshotsList';
 import { NewsList } from '@/entities/news/NewsList';
+import { PlanCard } from '@/entities/plan/PlanCard';
 import { StatusCard } from '@/entities/status/StatusCard';
 import { AutoTradingCard } from '@/features/autoTrading/AutoTradingCard';
 import { Tabs } from '@/shared/ui/Tabs';
@@ -30,6 +31,7 @@ export function ConsoleView({ email }: { email: string }) {
           <AutoTradingCard />
           <StatusCard />
           <LatestRunCard />
+          <PlanCard />
         </div>
         <div className="column">
           <Tabs value={tab} onChange={setTab} items={TABS}>

@@ -1,6 +1,7 @@
 import { createPaperLoopRepository } from './paperLoopRepository.ts';
 import { createDailySnapshotRepository } from './dailySnapshotRepository.ts';
 import { createConsoleReadRepository } from './consoleReadRepository.ts';
+import { createStrategyRunRepository } from './strategyRunRepository.ts';
 import { createTradingControlRepository } from './tradingControlRepository.ts';
 import { createApiQuotaRepository } from './apiQuotaRepository.ts';
 import { createNewsRepository } from './newsRepository.ts';
@@ -112,6 +113,16 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     expect(await news.save([{ ...base, symbol: '005930', title: 'a2', link, publishedAt: '2026-09-29T00:00:00.000Z' }])).toBe(0);
     const recent = await news.recent(2);
     expect(recent[0]!.publishedAt >= recent[1]!.publishedAt).toBe(true);
+  });
+  it('latest plan run is account-scoped and ignores non-plan runs', async () => {
+    const account = randomUUID();
+    const runs = createStrategyRunRepository(database.db, account);
+    const result = { mode: 'paper', dataSha256: 'd', configuration: {}, evaluations: [], order: null } as never;
+    await runs.put({ runKey: 'paper-dry-run-x', sessionDate: '20260929', createdAt: '2026-09-29T00:10:00.000Z', dataSha256: 'a'.repeat(64), result });
+    await runs.put({ runKey: 'plan-20260929-aaa', sessionDate: '20260929', createdAt: '2026-09-29T00:05:00.000Z', dataSha256: 'b'.repeat(64), result });
+    await runs.put({ runKey: 'plan-20260930-bbb', sessionDate: '20260930', createdAt: '2026-09-30T00:05:00.000Z', dataSha256: 'c'.repeat(64), result });
+    expect((await createConsoleReadRepository(database.db, account).latestPlanRun())?.runKey).toBe('plan-20260930-bbb');
+    expect(await createConsoleReadRepository(database.db, randomUUID()).latestPlanRun()).toBeNull();
   });
   it('preserves existing rows after expansion', async () => {
     const legacy = await database.db.select().from(orders).where(isNull(orders.executionAccount));

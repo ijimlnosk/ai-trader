@@ -9,7 +9,7 @@ function setup() {
   const listOrders = vi.fn(async () => []);
   const app = createApp(parseEnvironment({ DATABASE_URL: 'postgres://test:test@localhost/test', CONSOLE_READ_TOKEN: 'r'.repeat(32), ORDER_API_TOKEN: 'o'.repeat(32) }),
     { checkConnection: async () => {} }, { orders: { submit: vi.fn(), get: vi.fn(), reconcile: vi.fn() }, auth: s.auth, executionAccount: 'account-a',
-      consoleRead: { listOrders, listLoopRuns: async () => [], listSnapshots: async () => [] },
+      consoleRead: { listOrders, listLoopRuns: async () => [], listSnapshots: async () => [], latestPlanRun: async () => null },
       marketBroker: { isConfigured: () => false, getQuote: vi.fn() }, accountBroker: { getPortfolio: portfolio },
       riskContextProvider: { getRiskContext: vi.fn() } }, false);
   return { ...s, app, portfolio, listOrders };

@@ -35,12 +35,13 @@ Phase C1 — universe and data (order-free)
 - [ ] Console: universe coverage and data freshness.
 
 Phase C2 — multi-symbol decisions (paper)
-- [ ] Per-session plan: evaluate all symbols; SELL candidates for held symbols first, then BUY
-      candidates ranked by a deterministic score; each through the unchanged risk engine.
+- [x] Per-session plan: evaluate all symbols; SELL candidates for held symbols first, then BUY
+      candidates ranked by a deterministic score; each through the unchanged risk engine
+      (order-free `plan-*` strategy runs, `UNIVERSE_PLAN_SCHEDULE_ENABLED`, sequential risk context).
 - [ ] Loop run per (session, symbol) with the existing order-key/claim guarantees; sequential
       execution; stop the session on any HALTED/unknown state.
 - [ ] Backtest the universe strategy (next-open fills, costs) before enabling; record results.
-- [ ] Console: today's plan (scanned, signals, approved, skipped with reasons, orders).
+- [x] Console: today's plan (scanned, signals, approved, skipped with reasons). Orders pending C2 execution.
 
 Phase C3 — news and disclosures (analysis only)
 - [x] Naver news search adapter with persisted hard call budget and daily archive (DART pending). Keys
@@ -67,6 +68,9 @@ plans before enabling orders; evidence documents per enablement.
 
 2026-09-30: plan drafted; KIS paper capability probe recorded above.
 2026-09-30: universe (54), universe collection, Naver news archive with hard budget and console news tab implemented.
+2026-09-30: order-free universe plan (dataset builder with confirmed/aligned symbols only, sequential risk planning,
+  09:05 schedule step, console card). Plan items are not executed; the live loop still trades 005930 only.
+  Before execution: a validation week of plans, a universe backtest, and holdings outside the universe.
 
 # Remaining Work
 

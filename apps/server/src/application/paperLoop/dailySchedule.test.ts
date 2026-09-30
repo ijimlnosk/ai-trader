@@ -103,6 +103,30 @@ describe('daily schedule universe and news', () => {
   });
 });
 
+describe('daily schedule universe plan', () => {
+  it('saves one order-free plan per session inside the window, even while trading is paused', async () => {
+    const report = vi.fn();
+    const plan = vi.fn(async () => ({ status: 'saved' as const, runKey: 'plan-20260930-x', scanned: 54, excluded: 0 }));
+    const time = clock('2026-09-30T00:04:00Z');
+    const step = createDailySchedule({ plan, report, now: time.now });
+    await step();
+    expect(plan).not.toHaveBeenCalled();
+    time.state.now = new Date('2026-09-30T00:05:00Z');
+    await step(); await step();
+    expect(plan).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith('session_plan_saved', { runKey: 'plan-20260930-x', scanned: '54', excluded: '0' });
+  });
+
+  it('reports skips and failures without retrying the same day', async () => {
+    const report = vi.fn();
+    const plan = vi.fn().mockRejectedValueOnce(new Error('kis'));
+    const step = createDailySchedule({ plan, report, now: () => new Date('2026-09-30T01:00:00Z') });
+    await step(); await step();
+    expect(plan).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith('session_plan_failed');
+  });
+});
+
 describe('daily schedule ticks', () => {
   it('ticks once per session inside 09:05-15:00 Seoul', async () => {
     const s = setup('2026-09-30T00:04:00Z');

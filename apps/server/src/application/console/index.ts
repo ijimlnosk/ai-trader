@@ -1,4 +1,7 @@
-import type { ConsoleLoopRun, ConsoleSnapshot, ConsoleStatusResponse, OrderResponse } from '@ai-trader/contracts';
+import type { ConsoleLoopRun, ConsolePlanResponse, ConsoleSnapshot, ConsoleStatusResponse, OrderResponse } from '@ai-trader/contracts';
+import { planSession } from '../../domain/strategy/plan.ts';
+import { UNIVERSE, universeName } from '../../domain/market/universe.ts';
+import type { StrategyRunRecord } from '../scheduler/index.ts';
 import { KRX_CALENDAR } from '../../domain/scheduler/krxCalendar.ts';
 import type { StoredOrder } from '../../domain/orders.ts';
 import type { DailySnapshot } from '../marketData/ports.ts';
@@ -12,6 +15,8 @@ export interface ConsoleReadRepository {
   listOrders(limit: number): Promise<StoredOrder[]>;
   listLoopRuns(limit: number): Promise<PaperLoopRun[]>;
   listSnapshots(limit: number): Promise<DailySnapshot[]>;
+  /** Most recent order-free universe plan run (run key prefix `plan-`). */
+  latestPlanRun(): Promise<StrategyRunRecord | null>;
 }
 
 export type ConsoleFlags = Omit<ConsoleStatusResponse, 'checkedAt' | 'calendar'>;
@@ -40,6 +45,16 @@ export function createConsoleQueries(deps: { repository: ConsoleReadRepository; 
     orders: async (limit: number): Promise<OrderResponse[]> => (await deps.repository.listOrders(limit)).map(orderResponse),
     loopRuns: async (limit: number) => (await deps.repository.listLoopRuns(limit)).map(loopRun),
     snapshots: async (limit: number) => (await deps.repository.listSnapshots(limit)).map(snapshot),
+    plan: async (): Promise<ConsolePlanResponse> => {
+      const run = await deps.repository.latestPlanRun();
+      const evaluations = run?.result.evaluations ?? [];
+      if (!run || evaluations.length === 0) return { plan: null };
+      const plan = planSession(evaluations.map((evaluation) => evaluation.signal), evaluations[0]!.context);
+      return { plan: { runKey: run.runKey, sessionDate: run.sessionDate, createdAt: run.createdAt, scanned: plan.scanned,
+        universeSize: UNIVERSE.symbols.length, reasons: plan.reasons, items: plan.items.map((item) => ({ rank: item.rank,
+          symbol: item.symbol, name: universeName(item.symbol) ?? item.symbol, side: item.side, quantity: item.quantity,
+          estimatedPrice: item.estimatedPrice, reason: item.reason, approved: item.decision.approved, rejections: [...item.decision.reasons] })) } };
+    },
   };
 }
 export type ConsoleQueries = ReturnType<typeof createConsoleQueries>;

@@ -1,10 +1,11 @@
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, like } from 'drizzle-orm';
 import type { ConsoleReadRepository } from '../../application/console/index.ts';
 import type { createDatabase } from './index.ts';
 import { mapSnapshot } from './dailySnapshotRepository.ts';
 import { mapStoredOrder } from './orderMapping.ts';
 import { mapRun } from './paperLoopRepository.ts';
-import { marketDailySnapshots, orders, paperLoopRuns } from './schema.ts';
+import { marketDailySnapshots, orders, paperLoopRuns, strategyRuns } from './schema.ts';
+import type { StrategyRunRecord } from '../../application/scheduler/index.ts';
 
 type Database = ReturnType<typeof createDatabase>['db'];
 
@@ -20,6 +21,13 @@ export function createConsoleReadRepository(db: Database, executionAccount: stri
       const rows = await db.select().from(paperLoopRuns).where(eq(paperLoopRuns.executionAccount, executionAccount))
         .orderBy(desc(paperLoopRuns.createdAt)).limit(limit);
       return rows.map(mapRun);
+    },
+    async latestPlanRun() {
+      const [row] = await db.select().from(strategyRuns)
+        .where(and(eq(strategyRuns.executionAccount, executionAccount), like(strategyRuns.runKey, 'plan-%')))
+        .orderBy(desc(strategyRuns.createdAt)).limit(1);
+      return row ? { runKey: row.runKey, sessionDate: row.sessionDate, createdAt: row.createdAt.toISOString(),
+        dataSha256: row.dataSha256, result: row.result as StrategyRunRecord['result'] } : null;
     },
     async listSnapshots(limit) {
       const rows = await db.select().from(marketDailySnapshots)

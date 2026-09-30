@@ -17,7 +17,7 @@ function app(repository: Partial<ConsoleReadRepository> = {}, readToken: string 
   const server = Fastify();
   const listOrders = vi.fn<ConsoleReadRepository['listOrders']>(async () => []);
   const listSnapshots = vi.fn<ConsoleReadRepository['listSnapshots']>(async () => []);
-  const repo = { listOrders, listLoopRuns: vi.fn(async () => [run]), listSnapshots, ...repository };
+  const repo = { listOrders, listLoopRuns: vi.fn(async () => [run]), listSnapshots, latestPlanRun: async () => null, ...repository };
   registerConsoleRoutes(server, createConsoleQueries({ repository: repo, flags, now: () => new Date('2026-09-29T06:00:00Z') }), readToken ?? undefined);
   return { server, repo, listOrders, listSnapshots };
 }

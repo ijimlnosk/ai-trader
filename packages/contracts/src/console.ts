@@ -62,3 +62,13 @@ export interface ConsoleNewsResponse {
   /** Calls used today/this month against the self-imposed caps (Seoul calendar). */
   usage: { provider: string; daily: number; monthly: number; dailyCap: number; monthlyCap: number } | null;
 }
+
+/** Latest order-free universe plan. Quantities are shares; prices KRW; decisions from the risk engine. */
+export interface ConsolePlanResponse {
+  plan: {
+    runKey: string; sessionDate: string; createdAt: string; scanned: number; universeSize: number;
+    reasons: Record<string, number>;
+    items: { rank: number; symbol: string; name: string; side: 'BUY' | 'SELL'; quantity: string; estimatedPrice: string;
+      reason: string; approved: boolean; rejections: string[] }[];
+  } | null;
+}

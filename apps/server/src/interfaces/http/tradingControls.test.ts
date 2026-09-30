@@ -26,7 +26,7 @@ function setup(env: Record<string, string> = armed) {
   const submit = vi.fn();
   const app = createApp(parseEnvironment({ DATABASE_URL: 'postgres://test:test@localhost/test', ORDER_API_TOKEN: 'o'.repeat(32), ...env }),
     { checkConnection: async () => {} }, { orders: { submit, get: vi.fn(), reconcile: vi.fn() }, auth: s.auth, executionAccount: 'account-a',
-      consoleRead: { listOrders: async () => [], listLoopRuns: async () => [], listSnapshots: async () => [] }, tradingControls: controls,
+      consoleRead: { listOrders: async () => [], listLoopRuns: async () => [], listSnapshots: async () => [], latestPlanRun: async () => null }, tradingControls: controls,
       paperLoopRuns: { find: vi.fn(), claim: vi.fn(), update: vi.fn(), findOrder: vi.fn(), hasUnresolvedOrder: vi.fn() },
       dailySnapshots: { latest: vi.fn(), latestThrough: vi.fn(), save: vi.fn() }, dailyHistory: { getDailyHistory: vi.fn() },
       marketBroker: { isConfigured: () => false, getQuote: vi.fn() }, accountBroker: { getPortfolio: vi.fn() },

@@ -52,6 +52,7 @@ export function registerUserConsole(app: FastifyInstance, deps: {
       if (name === 'broker-status') return deps.market.getStatus();
       if (name === 'health') return deps.health();
       if (name === 'controls' && deps.controls) return deps.controls.status();
+      if (name === 'plan') return deps.queries!.plan();
       return reply.code(404).send({ error: { code: 'not_found' } });
     });
     // Owner pause/resume of automatic paper trading only. Resume requires the password again.

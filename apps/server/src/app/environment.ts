@@ -31,6 +31,7 @@ const schema = z.object({
   NAVER_DAILY_CALL_CAP: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(20000)).default(1000),
   NAVER_MONTHLY_CALL_CAP: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(600000)).default(20000),
   NEWS_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  UNIVERSE_PLAN_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   TRADING_KILL_SWITCH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((value, ctx) => {
   if ((value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_ENABLED) && (!value.ORDER_API_TOKEN || value.ORDER_API_TOKEN.length < 32)) {

@@ -6,6 +6,7 @@ import type { PaperLoopInput } from './input.ts';
 import { PaperLoopError } from './ports.ts';
 import type { PaperLoopPreparer } from './prepare.ts';
 import type { NewsCollector } from '../news/collect.ts';
+import type { SessionPlanRunner } from '../strategy/sessionPlan.ts';
 
 const MORNING_COLLECT_START_MINUTE = 8 * 60;
 const MORNING_COLLECT_END_MINUTE = 8 * 60 + 50;
@@ -34,13 +35,15 @@ export function createDailySchedule(deps: {
   symbols?: readonly string[] | undefined;
   /** Once per session day, after the morning confirmation window. */
   news?: NewsCollector | undefined;
+  /** Order-free universe evaluation, once per session day inside the tick window; ignores the pause. */
+  plan?: SessionPlanRunner | undefined;
   /** isEnabled is the owner's pause/resume control; failures to read it count as paused. */
   loop?: { prepare: PaperLoopPreparer; tick: PaperLoop; isEnabled: () => Promise<boolean> } | undefined;
   report: ScheduleReport; now?: () => Date;
 }) {
   const now = deps.now ?? (() => new Date());
   const symbols = deps.symbols ?? ['005930'];
-  const state = { collectDate: '', collectAttempts: 0, pending: [] as string[], nextCollectAt: 0, newsDate: '',
+  const state = { collectDate: '', collectAttempts: 0, pending: [] as string[], nextCollectAt: 0, newsDate: '', planDate: '',
     tickDate: '', pausedDate: '', tracking: null as PaperLoopInput | null, halted: false };
 
   async function collectStep(at: Date, today: string) {
@@ -64,6 +67,18 @@ export function createDailySchedule(deps: {
           revisedDates: result.snapshot.revisedDates.join(',') });
       } catch { deps.report('market_snapshot_failed', { symbol, attempt: String(state.collectAttempts) }); }
     }
+  }
+
+  async function planStep(at: Date, today: string) {
+    const minute = seoulMinute(at);
+    if (!deps.plan || state.planDate === today || krxSessionStatus(today) !== 'session'
+      || minute < TICK_START_MINUTE || minute >= TICK_END_MINUTE) return;
+    state.planDate = today;
+    try {
+      const result = await deps.plan();
+      deps.report(result.status === 'saved' ? 'session_plan_saved' : 'session_plan_skipped', result.status === 'saved'
+        ? { runKey: result.runKey, scanned: String(result.scanned), excluded: String(result.excluded) } : { reason: result.reason });
+    } catch { deps.report('session_plan_failed'); }
   }
 
   async function newsStep(at: Date, today: string) {
@@ -116,6 +131,7 @@ export function createDailySchedule(deps: {
     const today = seoulOrderDate(at.toISOString());
     await collectStep(at, today);
     await tickStep(at, today);
+    await planStep(at, today);
     await newsStep(at, today);
   };
 }

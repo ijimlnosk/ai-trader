@@ -37,6 +37,8 @@ import type { ApiQuota, NewsRepository, NewsSearch } from '../application/news/p
 import { createNewsCollector } from '../application/news/collect.ts';
 import { createNewsQuery } from '../application/news/query.ts';
 import { UNIVERSE, universeSymbols } from '../domain/market/universe.ts';
+import { createUniverseDatasetBuilder } from '../application/marketData/universeDataset.ts';
+import { createSessionPlanRunner } from '../application/strategy/sessionPlan.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -70,7 +72,8 @@ export function createApp(
     account: dependencies.accountBroker, risk: dependencies.riskContextProvider, orders: dependencies.orders,
   });
   registerOrderRoutes(app, dependencies.orders, environment.ORDER_API_TOKEN, strategy);
-  registerStrategySchedulerRoute(app, createStrategyScheduler({ strategy, runs: dependencies.strategyRuns ?? createMemoryStrategyRunRepository() }), environment.ORDER_API_TOKEN);
+  const strategyScheduler = createStrategyScheduler({ strategy, runs: dependencies.strategyRuns ?? createMemoryStrategyRunRepository() });
+  registerStrategySchedulerRoute(app, strategyScheduler, environment.ORDER_API_TOKEN);
   const tick = dependencies.paperLoopRuns && dependencies.orders ? createPaperLoop({
     repository: dependencies.paperLoopRuns, orders: dependencies.orders, strategy,
     enabled: environment.PAPER_LOOP_ENABLED, executionEnabled: environment.PAPER_ORDER_EXECUTION_ENABLED,
@@ -100,7 +103,11 @@ export function createApp(
   registerUserConsole(app, { news, controls, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
     portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
     health: createHealthCheck(database, new PaperBroker()) });
-  if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED || environment.NEWS_SCHEDULE_ENABLED) {
+  const planRunner = snapshots && dependencies.strategyRuns ? createSessionPlanRunner({ scheduler: strategyScheduler,
+    build: createUniverseDatasetBuilder({ snapshots, symbols: universeSymbols(), label: UNIVERSE.version }) }) : undefined;
+  if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED || environment.NEWS_SCHEDULE_ENABLED
+    || environment.UNIVERSE_PLAN_SCHEDULE_ENABLED) {
+    if (environment.UNIVERSE_PLAN_SCHEDULE_ENABLED && !planRunner) throw new Error('Plan schedule dependencies required');
     if (environment.NEWS_SCHEDULE_ENABLED && !collectNews) throw new Error('News schedule dependencies required');
     if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick || !controls))) {
       throw new Error('Daily schedule dependencies required');
@@ -109,6 +116,7 @@ export function createApp(
     const step = createDailySchedule({ report,
       collect: environment.MARKET_DATA_SCHEDULE_ENABLED ? collect : undefined, symbols: universeSymbols(),
       news: environment.NEWS_SCHEDULE_ENABLED ? collectNews : undefined,
+      plan: environment.UNIVERSE_PLAN_SCHEDULE_ENABLED ? planRunner : undefined,
       loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick && controls ? { prepare, tick, isEnabled: controls.isAutoTradingEnabled } : undefined });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });
