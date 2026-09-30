@@ -112,3 +112,14 @@ Rollback: set the three switches back to false (or restore `env.before`) and rec
   snapshots before/after equal). Environment switches unchanged (all on, live off). As designed the
   schedule now reports `paper_loop_paused` until the owner resumes in the console. Anonymous
   control GET/POST 401, cross-origin POST 403, direct API POST 401.
+
+## Universe collection and news archive deployment (2026-09-30 11:25 KST)
+
+Commit `954d0e1` (migration 0009) deployed; evidence `/home/jinsol/ai-trader-backups/news-deploy-20260930`
+(backups, DB dump ok, read-only ledger snapshots equal). Server Compose now passes the Naver and news
+settings. Universe collection (54 symbols) starts with the 18:30 KST phase.
+
+Naver credentials were copied from the owner's local repository `.env` (git-ignored) to the server
+`.env` over SSH without printing them. A single budgeted probe returned HTTP 401 (authentication
+failed); the call is counted (`naver-news` 1/1,000 today). `NEWS_SCHEDULE_ENABLED` stays false
+until the owner corrects the credentials; no further Naver calls are made.
