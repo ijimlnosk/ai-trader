@@ -1,7 +1,8 @@
-import { DEFAULT_RISK_POLICY, evaluateRisk } from '../../domain/risk/index.ts';
+import { DEFAULT_RISK_POLICY } from '../../domain/risk/index.ts';
 import { ledgerAmount, ledgerDecimal } from '../../domain/tradeLedger.ts';
 import { DEFAULT_STRATEGY_CONFIG, validateStrategyConfig, type StrategyConfig } from '../../domain/strategy/config.ts';
 import { evaluateStrategy, type StrategyEvaluation } from '../../domain/strategy/evaluate.ts';
+import { planSession } from '../../domain/strategy/plan.ts';
 import { validateDataset, type MarketDataset } from '../../domain/strategy/marketData.ts';
 import { accountSnapshot, type SimulationAccount } from './account.ts';
 import { executeSimulation, validateCosts, type SimulationCosts, type SimulatedExecution } from './execution.ts';
@@ -34,17 +35,20 @@ export function runBacktest(data: MarketDataset, settings: BacktestSettings = DE
       const series = universe.find((item) => item.symbol === signal.symbol)!;
       trades.push(executeSimulation(account, signal, series.candles[index]!, settings.costs, settings.killSwitchEnabled));
     }
-    pending = [];
     for (const series of universe) account.marks.set(series.symbol, series.candles[index]!.close);
     const snapshot = accountSnapshot(account, date, settings.killSwitchEnabled);
-    for (const series of universe) {
+    const signals = universe.map((series) => {
       const heldQuantity = snapshot.ledger.positions.find((p) => p.symbol === series.symbol)?.quantity ?? '0';
-      const signal = evaluateStrategy(series.symbol, series.candles.slice(0, index + 1),
+      return evaluateStrategy(series.symbol, series.candles.slice(0, index + 1),
         { ...snapshot.context, heldQuantity }, data.source, settings.strategy);
-      const decision = signal.proposal ? evaluateRisk(signal.proposal, snapshot.context) : null;
-      evaluations.push({ signal, context: snapshot.context, policy: DEFAULT_RISK_POLICY, decision });
-      if (decision?.approved) pending.push(signal);
+    });
+    // Same ordering and sequential risk context as the live session plan (SELLs first, ranked BUYs).
+    const plan = planSession(signals, snapshot.context);
+    for (const signal of signals) {
+      const item = plan.items.find((planned) => planned.symbol === signal.symbol);
+      evaluations.push({ signal, context: item?.context ?? snapshot.context, policy: DEFAULT_RISK_POLICY, decision: item?.decision ?? null });
     }
+    pending = plan.items.filter((item) => item.decision.approved).map((item) => signals.find((signal) => signal.symbol === item.symbol)!);
     equityCurve.push({ date, cash: snapshot.context.cash, equity: snapshot.context.totalEquity });
     if (snapshot.equity > peak) peak = snapshot.equity;
     maxDrawdown = Math.max(maxDrawdown, Number((peak - snapshot.equity) * 100000000n / peak) / 100000000);

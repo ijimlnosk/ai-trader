@@ -40,7 +40,9 @@ Phase C2 — multi-symbol decisions (paper)
       (order-free `plan-*` strategy runs, `UNIVERSE_PLAN_SCHEDULE_ENABLED`, sequential risk context).
 - [ ] Loop run per (session, symbol) with the existing order-key/claim guarantees; sequential
       execution; stop the session on any HALTED/unknown state.
-- [ ] Backtest the universe strategy (next-open fills, costs) before enabling; record results.
+- [x] Backtest the universe strategy (next-open fills, costs) before enabling; record results.
+      Result 2026-09-30: −2.5% vs +29.6% equal-weight buy-and-hold; execution blocked pending strategy
+      research and an owner decision on the consecutive-loss halt reset ([report](../../BACKTEST_UNIVERSE_2026-09-30.md)).
 - [x] Console: today's plan (scanned, signals, approved, skipped with reasons). Orders pending C2 execution.
 
 Phase C3 — news and disclosures (analysis only)
