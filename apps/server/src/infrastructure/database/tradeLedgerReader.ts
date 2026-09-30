@@ -1,5 +1,6 @@
 import { and, asc, eq, gt } from 'drizzle-orm';
 import { calculateTradeLedger, executionDelta, ledgerAmount, type LedgerExecution } from '../../domain/tradeLedger.ts';
+import { krxSessionsElapsed } from '../../domain/scheduler/krxCalendar.ts';
 import type { createDatabase } from './index.ts';
 import { orders, executions } from './schema.ts';
 
@@ -28,5 +29,5 @@ export async function readTradeLedger(db: Database, account: string, day: string
       quantity = '0'; amount = '0';
     }
   }
-  return calculateTradeLedger(events, day);
+  return calculateTradeLedger(events, day, krxSessionsElapsed);
 }

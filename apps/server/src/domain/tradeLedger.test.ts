@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { calculateTradeLedger, executionDelta, ledgerDecimal, type LedgerExecution } from './tradeLedger.ts';
 
 const event = (orderId: string, side: 'BUY' | 'SELL', quantity: string, amount: string, tradeDate = '20260916'): LedgerExecution =>
@@ -50,4 +50,37 @@ it('derives only positive incremental fills and treats repeated cumulative snaps
 });
 it.each([['1', '101'], ['2', '100'], ['0', '0'], ['1.5', '150']])('rejects non-monotonic/inconsistent cumulative change %s/%s', (qty, amount) => {
   expect(() => executionDelta('1', '100', qty, amount)).toThrow();
+});
+
+describe('consecutive-loss cooldown (decision 0012)', () => {
+  const trade = (orderId: string, side: 'BUY' | 'SELL', tradeDate: string, amount: string) =>
+    ({ orderId, symbol: '005930', side, tradeDate, quantity: '1', amount });
+  // Three losing round trips, the last loss on 20260910.
+  const losses = [trade('b1', 'BUY', '20260908', '100'), trade('s1', 'SELL', '20260908', '90'),
+    trade('b2', 'BUY', '20260909', '100'), trade('s2', 'SELL', '20260909', '90'),
+    trade('b3', 'BUY', '20260910', '100'), trade('s3', 'SELL', '20260910', '90')];
+  const sessions = ['20260908', '20260909', '20260910', '20260911', '20260914', '20260915', '20260916', '20260917', '20260918', '20260921'];
+  const elapsed = (from: string, to: string) => {
+    const a = sessions.indexOf(from); const b = sessions.indexOf(to);
+    return a < 0 || b < 0 ? null : Math.max(0, b - a);
+  };
+
+  it('keeps the streak below the cooldown and expires it at exactly five sessions', () => {
+    expect(calculateTradeLedger(losses, '20260910', elapsed).consecutiveLosses).toBe(3);
+    expect(calculateTradeLedger(losses, '20260916', elapsed).consecutiveLosses).toBe(3); // 4 sessions
+    expect(calculateTradeLedger(losses, '20260917', elapsed).consecutiveLosses).toBe(0); // exactly 5
+    expect(calculateTradeLedger(losses, '20260918', elapsed).consecutiveLosses).toBe(0); // 6
+  });
+
+  it('never expires when the session count is unknown or no calendar is supplied', () => {
+    expect(calculateTradeLedger(losses, '20260917', () => null).consecutiveLosses).toBe(3);
+    expect(calculateTradeLedger(losses, '20260917').consecutiveLosses).toBe(3);
+  });
+
+  it('starts a fresh streak after expiry and still resets on a win', () => {
+    const later = [...losses, trade('b4', 'BUY', '20260918', '100'), trade('s4', 'SELL', '20260918', '90')];
+    expect(calculateTradeLedger(later, '20260918', elapsed).consecutiveLosses).toBe(1);
+    const win = [...losses, trade('b5', 'BUY', '20260911', '100'), trade('s5', 'SELL', '20260911', '120')];
+    expect(calculateTradeLedger(win, '20260911', elapsed).consecutiveLosses).toBe(0);
+  });
 });

@@ -1,3 +1,4 @@
+import { CONSECUTIVE_LOSS_COOLDOWN_SESSIONS } from './risk/policy.ts';
 import { DECIMAL_SCALE, parseRiskDecimal } from './risk/decimal.ts';
 
 /** Observed change in a KIS cumulative fill; not an exchange-level execution identifier. */
@@ -32,10 +33,14 @@ export function validTradeDate(value: string): boolean {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10).replaceAll('-', '') === value;
 }
 /** Input must be in durable account execution order. No broker valuation is used as cost basis. */
-export function calculateTradeLedger(executions: readonly LedgerExecution[], day: string): TradeLedger {
+/** Sessions strictly after `from` up to and including `to`, or null when the calendar cannot say. */
+export type SessionsElapsed = (from: string, to: string) => number | null;
+
+export function calculateTradeLedger(executions: readonly LedgerExecution[], day: string,
+  sessionsElapsed?: SessionsElapsed): TradeLedger {
   if (!validTradeDate(day)) throw new Error('Invalid ledger date');
   const holdings = new Map<string, { quantity: bigint; cost: bigint }>();
-  const sales = new Map<string, bigint>();
+  const sales = new Map<string, { pnl: bigint; date: string }>();
   const identities = new Map<string, string>();
   let daily = 0n;
   let lastDate = '';
@@ -59,13 +64,23 @@ export function calculateTradeLedger(executions: readonly LedgerExecution[], day
       const cost = quantity === position.quantity ? position.cost : position.cost * quantity / position.quantity;
       const pnl = amount - cost;
       position.quantity -= quantity; position.cost -= cost;
-      sales.set(orderId, (sales.get(orderId) ?? 0n) + pnl);
+      sales.set(orderId, { pnl: (sales.get(orderId)?.pnl ?? 0n) + pnl, date: tradeDate });
       if (tradeDate === day) daily += pnl;
     }
     holdings.set(symbol, position);
   }
+  // A win resets the streak; so does a cooldown of sessions after the latest loss (decision 0012).
+  const expired = (lastLoss: string, at: string) => {
+    const elapsed = sessionsElapsed?.(lastLoss, at) ?? null;
+    return elapsed !== null && elapsed >= CONSECUTIVE_LOSS_COOLDOWN_SESSIONS;
+  };
   let consecutiveLosses = 0;
-  for (const pnl of sales.values()) consecutiveLosses = pnl < 0n ? consecutiveLosses + 1 : 0;
+  let lastLoss = '';
+  for (const sale of sales.values()) {
+    if (consecutiveLosses > 0 && expired(lastLoss, sale.date)) consecutiveLosses = 0;
+    if (sale.pnl < 0n) { consecutiveLosses += 1; lastLoss = sale.date; } else consecutiveLosses = 0;
+  }
+  if (consecutiveLosses > 0 && expired(lastLoss, day)) consecutiveLosses = 0;
   return { dailyRealizedPnl: ledgerDecimal(daily), consecutiveLosses,
     positions: [...holdings].filter(([, p]) => p.quantity > 0n).map(([symbol, p]) => ({
       symbol, quantity: ledgerDecimal(p.quantity), costAmount: ledgerDecimal(p.cost),

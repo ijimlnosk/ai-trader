@@ -54,3 +54,15 @@ describe('KRX calendar', () => {
     expect(krxSessionsBetween('20260430', '20260928')).toHaveLength(100);
   });
 });
+
+describe('krxSessionsElapsed', () => {
+  it('counts reviewed sessions after the start, across closures', async () => {
+    const { krxSessionsElapsed } = await import('./krxCalendar.ts');
+    expect(krxSessionsElapsed('20260923', '20260928')).toBe(1);
+    expect(krxSessionsElapsed('20261002', '20261012')).toBe(4); // 10/6, 10/7, 10/8, 10/12
+    expect(krxSessionsElapsed('20260929', '20260929')).toBe(0);
+    expect(krxSessionsElapsed('20260930', '20260929')).toBe(0);
+    expect(krxSessionsElapsed('20261228', '20261231')).toBeNull();
+    expect(krxSessionsElapsed('bad', '20260929')).toBeNull();
+  });
+});

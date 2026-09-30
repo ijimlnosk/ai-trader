@@ -36,3 +36,10 @@ Evaluations: 10,806 `NO_ENTRY`, 24 `BULLISH_CROSS`, 6 `TREND_EXIT`, 67 `HOLD_POS
 3. The current strategy should not be connected to market-wide execution. Strategy research needs
    walk-forward (out-of-sample) validation on longer history before any change, and the
    consecutive-loss halt needs an explicit owner decision on how it resets (not a silent change).
+
+## Rerun with the five-session loss cooldown (decision 0012)
+
+Same data and settings; execution-time risk also uses the dataset sessions. Result: final equity
+KRW 9,341,313 (−6.59%), max drawdown 8.45%, 22 buys / 18 completed sales, win rate 16.7%,
+4 positions open at the end. Removing the permanent halt increased trading and losses: the entry
+and exit rules themselves are the problem, not the halt.

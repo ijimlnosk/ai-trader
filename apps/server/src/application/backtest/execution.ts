@@ -1,5 +1,5 @@
 import { DEFAULT_RISK_POLICY, evaluateRisk, type TradeProposal, type RiskDecision, type RiskContext } from '../../domain/risk/index.ts';
-import { ledgerAmount, ledgerDecimal } from '../../domain/tradeLedger.ts';
+import { ledgerAmount, ledgerDecimal, type SessionsElapsed } from '../../domain/tradeLedger.ts';
 import { candleTime, type DailyCandle } from '../../domain/strategy/marketData.ts';
 import type { StrategyEvaluation } from '../../domain/strategy/evaluate.ts';
 import { accountSnapshot, type SimulationAccount } from './account.ts';
@@ -16,13 +16,13 @@ export interface SimulatedExecution {
 }
 const ceilBps = (value: bigint, bps: number) => (value * BigInt(bps) + 9999n) / 10000n;
 export function executeSimulation(account: SimulationAccount, signal: StrategyEvaluation, bar: DailyCandle,
-  costs: SimulationCosts, killSwitchEnabled: boolean): SimulatedExecution {
+  costs: SimulationCosts, killSwitchEnabled: boolean, sessionsElapsed?: SessionsElapsed): SimulatedExecution {
   if (!signal.proposal) throw new Error('Missing trade proposal');
   const original = signal.proposal;
   const open = ledgerAmount(bar.open);
   const price = original.side === 'BUY' ? open + ceilBps(open, costs.slippageBps) : open - ceilBps(open, costs.slippageBps);
   const proposal = { ...original, estimatedPrice: ledgerDecimal(price), createdAt: candleTime(bar.date, 'open') };
-  const snapshot = accountSnapshot(account, bar.date, killSwitchEnabled);
+  const snapshot = accountSnapshot(account, bar.date, killSwitchEnabled, sessionsElapsed);
   const decision = evaluateRisk(proposal, snapshot.context);
   const quantity = BigInt(proposal.quantity);
   const gross = price * quantity;

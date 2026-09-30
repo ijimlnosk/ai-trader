@@ -27,16 +27,20 @@ export function runBacktest(data: MarketDataset, settings: BacktestSettings = DE
   const equityCurve: { date: string; cash: string; equity: string }[] = [];
   let pending: StrategyEvaluation[] = [];
   let peak = initial; let maxDrawdown = 0;
+  // The dataset's own sessions stand in for the exchange calendar when expiring loss streaks.
+  const position = new Map(data.sessions.map((session, i) => [session, i]));
+  const elapsed = (from: string, to: string) => { const a = position.get(from); const b = position.get(to);
+    return a === undefined || b === undefined ? null : Math.max(0, b - a); };
   for (let index = 0; index < data.sessions.length; index++) {
     const date = data.sessions[index]!;
     // Opening marks only: no current close/high/low enters execution or its risk context.
     for (const series of universe) account.marks.set(series.symbol, series.candles[index]!.open);
     for (const signal of pending) {
       const series = universe.find((item) => item.symbol === signal.symbol)!;
-      trades.push(executeSimulation(account, signal, series.candles[index]!, settings.costs, settings.killSwitchEnabled));
+      trades.push(executeSimulation(account, signal, series.candles[index]!, settings.costs, settings.killSwitchEnabled, elapsed));
     }
     for (const series of universe) account.marks.set(series.symbol, series.candles[index]!.close);
-    const snapshot = accountSnapshot(account, date, settings.killSwitchEnabled);
+    const snapshot = accountSnapshot(account, date, settings.killSwitchEnabled, elapsed);
     const signals = universe.map((series) => {
       const heldQuantity = snapshot.ledger.positions.find((p) => p.symbol === series.symbol)?.quantity ?? '0';
       return evaluateStrategy(series.symbol, series.candles.slice(0, index + 1),
@@ -53,7 +57,7 @@ export function runBacktest(data: MarketDataset, settings: BacktestSettings = DE
     if (snapshot.equity > peak) peak = snapshot.equity;
     maxDrawdown = Math.max(maxDrawdown, Number((peak - snapshot.equity) * 100000000n / peak) / 100000000);
   }
-  const final = accountSnapshot(account, data.sessions.at(-1)!, settings.killSwitchEnabled);
+  const final = accountSnapshot(account, data.sessions.at(-1)!, settings.killSwitchEnabled, elapsed);
   const sales = trades.filter((trade) => trade.status === 'FILLED' && trade.realizedPnl !== null);
   // Each strategy exit disposes of all shares; each successful SELL closes one trade.
   const realizedPnl = sales.reduce((sum, trade) => sum + signedAmount(trade.realizedPnl!), 0n);

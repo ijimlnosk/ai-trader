@@ -61,3 +61,11 @@ export function krxSessionsBetween(from: string, through: string): string[] | nu
 }
 
 export const krxSessionCalendar: TradingSessionCalendar = { has: (date) => krxSessionStatus(date) === 'session' };
+
+/** Reviewed sessions strictly after `from` up to and including `to`; null when any day is uncovered. */
+export function krxSessionsElapsed(from: string, to: string): number | null {
+  if (!validTradeDate(from) || !validTradeDate(to)) return null;
+  if (to <= from) return 0;
+  const sessions = krxSessionsBetween(shiftDate(from, 1), to);
+  return sessions ? sessions.length : null;
+}
