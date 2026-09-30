@@ -51,10 +51,17 @@ describe('news collector budget', () => {
     expect(s.search.search).toHaveBeenCalledTimes(1);
   });
 
+  it('does not repeat a day already collected (restart), using persisted usage', async () => {
+    const s = setup();
+    await s.collect();
+    expect(await s.collect()).toEqual({ calls: 0, saved: 0, failed: 0, budgetExhausted: false, alreadyCollected: true });
+    expect(s.search.search).toHaveBeenCalledTimes(3);
+  });
+
   it('counts failed calls against the budget and continues with the next symbol', async () => {
     const s = setup({ daily: 3, monthly: 1000 });
     s.search.search.mockRejectedValueOnce(new Error('news_provider_500'));
     expect(await s.collect()).toEqual({ calls: 3, saved: 4, failed: 1, budgetExhausted: false });
-    expect(await s.collect()).toMatchObject({ calls: 0, budgetExhausted: true });
+    expect(await s.collect()).toMatchObject({ calls: 0, alreadyCollected: true });
   });
 });

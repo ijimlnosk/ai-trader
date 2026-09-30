@@ -117,15 +117,16 @@ describe('daily schedule universe plan', () => {
     expect(report).toHaveBeenCalledWith('session_plan_saved', { runKey: 'plan-20260930-x', scanned: '54', excluded: '0' });
   });
 
-  it('reports skips and failures without retrying the same day', async () => {
+  it('retries only failed plan runners, ten minutes apart, at most three times; skips are final', async () => {
     const report = vi.fn();
-    const plan = vi.fn().mockRejectedValueOnce(new Error('kis'));
+    const failing = vi.fn(async () => { throw new Error('kis timeout'); });
     const other = vi.fn(async () => ({ status: 'skipped' as const, reason: 'no_confirmed_data' }));
-    const step = createDailySchedule({ plans: [plan, other], report, now: () => new Date('2026-09-30T01:00:00Z') });
-    await step(); await step();
-    expect(plan).toHaveBeenCalledTimes(1);
-    expect(report).toHaveBeenCalledWith('session_plan_failed');
+    const time = clock('2026-09-30T01:00:00Z');
+    const step = createDailySchedule({ plans: [failing, other], report, now: time.now });
+    for (let minute = 0; minute < 60; minute += 1) { time.state.now = new Date(Date.parse('2026-09-30T01:00:00Z') + minute * 60000); await step(); }
+    expect(failing).toHaveBeenCalledTimes(3);
     expect(other).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith('session_plan_failed', { attempt: '3' });
     expect(report).toHaveBeenCalledWith('session_plan_skipped', { reason: 'no_confirmed_data' });
   });
 });

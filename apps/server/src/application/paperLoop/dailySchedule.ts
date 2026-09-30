@@ -44,6 +44,7 @@ export function createDailySchedule(deps: {
   const now = deps.now ?? (() => new Date());
   const symbols = deps.symbols ?? ['005930'];
   const state = { collectDate: '', collectAttempts: 0, pending: [] as string[], nextCollectAt: 0, newsDate: '', planDate: '',
+    planPending: [] as number[], planAttempts: 0, nextPlanAt: 0,
     tickDate: '', pausedDate: '', tracking: null as PaperLoopInput | null, halted: false };
 
   async function collectStep(at: Date, today: string) {
@@ -71,16 +72,19 @@ export function createDailySchedule(deps: {
 
   async function planStep(at: Date, today: string) {
     const minute = seoulMinute(at);
-    if (!deps.plans?.length || state.planDate === today || krxSessionStatus(today) !== 'session'
-      || minute < TICK_START_MINUTE || minute >= TICK_END_MINUTE) return;
-    state.planDate = today;
-    // Independent runners: one failing does not stop the others.
-    for (const plan of deps.plans) {
+    if (!deps.plans?.length || krxSessionStatus(today) !== 'session' || minute < TICK_START_MINUTE || minute >= TICK_END_MINUTE) return;
+    if (state.planDate !== today) Object.assign(state, { planDate: today, planPending: deps.plans.map((_, i) => i), planAttempts: 0, nextPlanAt: 0 });
+    if (state.planPending.length === 0 || state.planAttempts >= MAX_COLLECT_ATTEMPTS || at.getTime() < state.nextPlanAt) return;
+    state.planAttempts += 1;
+    state.nextPlanAt = at.getTime() + COLLECT_RETRY_MS;
+    // Independent runners; only ones that threw are retried (skips are final for the day).
+    for (const index of [...state.planPending]) {
       try {
-        const result = await plan();
+        const result = await deps.plans[index]!();
+        state.planPending = state.planPending.filter((pending) => pending !== index);
         deps.report(result.status === 'saved' ? 'session_plan_saved' : 'session_plan_skipped', result.status === 'saved'
           ? { runKey: result.runKey, scanned: String(result.scanned), excluded: String(result.excluded) } : { reason: result.reason });
-      } catch { deps.report('session_plan_failed'); }
+      } catch { deps.report('session_plan_failed', { attempt: String(state.planAttempts) }); }
     }
   }
 
@@ -91,6 +95,7 @@ export function createDailySchedule(deps: {
     state.newsDate = today;
     try {
       const result = await deps.news();
+      if (result.alreadyCollected) return deps.report('news_already_collected');
       deps.report('news_collected', { calls: String(result.calls), saved: String(result.saved), failed: String(result.failed),
         budgetExhausted: String(result.budgetExhausted) });
     } catch { deps.report('news_failed'); }
