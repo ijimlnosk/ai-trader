@@ -10,5 +10,7 @@ export default tseslint.config(
   { files: ['apps/server/src/domain/**/*.ts'], rules: { 'no-restricted-imports': restricted(['fastify', 'drizzle-orm', 'drizzle-orm/*', 'pg', 'node:*', '**/application/**', '**/infrastructure/**', '**/interfaces/**', '**/app/**']) } },
   // The web console reaches the server only through HTTP and shared contracts.
   { files: ['apps/web/**/*.ts', 'apps/web/**/*.tsx'], rules: { 'no-restricted-imports': restricted(['@ai-trader/*/src/**', '**/apps/*/src/**', '**/apps/server/**', '**/server/src/**', 'drizzle-orm', 'pg', 'fastify']) } },
+  // Offline research scripts run under Node.
+  { files: ['research/**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly' } } },
   { files: ['apps/server/src/application/**/*.ts'], rules: { 'no-restricted-imports': restricted(['fastify', 'drizzle-orm', 'drizzle-orm/*', 'pg', '**/infrastructure/**', '**/interfaces/**', '**/app/**']) } },
 );

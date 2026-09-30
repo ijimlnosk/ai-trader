@@ -26,7 +26,7 @@ function simulate(strategy, from, to) {
   const equityAt = (t, price) => cash + [...pos].reduce((sum, [i, p]) => sum + p.qty * series[i][price][t], 0);
   for (let t = from; t <= to; t++) {
     // 1) Execute yesterday's orders at today's open: sells first.
-    for (const order of orders.sort((a, b) => (a.side === 'SELL' ? -1 : 1))) {
+    for (const order of orders.sort((a, b) => (a.side === b.side ? 0 : a.side === "SELL" ? -1 : 1))) {
       const s = series[order.i];
       if (order.side === 'SELL') {
         const p = pos.get(order.i); if (!p) continue;
