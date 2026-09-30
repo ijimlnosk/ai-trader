@@ -123,3 +123,12 @@ Naver credentials were copied from the owner's local repository `.env` (git-igno
 `.env` over SSH without printing them. A single budgeted probe returned HTTP 401 (authentication
 failed); the call is counted (`naver-news` 1/1,000 today). `NEWS_SCHEDULE_ENABLED` stays false
 until the owner corrects the credentials; no further Naver calls are made.
+
+## Order-free universe plan enabled (2026-09-30 11:48 KST)
+
+Commit `a132751` deployed; evidence `/home/jinsol/ai-trader-backups/plan-deploy-20260930`.
+`UNIVERSE_PLAN_SCHEDULE_ENABLED=true` (server `.env` and Compose). The first plan
+`plan-20260930-ace8d0453c3e` scanned 1 symbol and excluded 53: only `005930` had a snapshot
+confirmed this morning because universe collection starts at 18:30 KST today. Orders, executions,
+fills and loop runs unchanged; strategy_runs 1 → 2. The owner toggle currently reports
+`paper_loop_paused`. The first full 54-symbol plan is expected on 2026-10-01 09:05 KST.
