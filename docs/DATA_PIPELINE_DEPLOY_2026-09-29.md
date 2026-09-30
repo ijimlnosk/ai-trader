@@ -154,3 +154,12 @@ a KIS balance TIMEOUT (first KIS call after restart) and the day's news was coll
 and news collection stops when persisted usage already covers the day (`news_already_collected`,
 usage stayed 109). The 15:02 restart was after the 09:05–15:00 plan window, so the first
 momentum plan will be on 2026-10-01.
+
+## Momentum paper execution enabled (2026-09-30 15:45 KST)
+
+Commits through `21675be` (decision 0014); evidence `/home/jinsol/ai-trader-backups/momentum-exec-20260930`
+(backups, DB dump ok; read-only ledger snapshot before/after equal). `.env`: `MOMENTUM_EXECUTION_ENABLED=true`,
+`PAPER_LOOP_SCHEDULE_ENABLED=false` (EMA 005930 automatic ticks off; one automated strategy per account).
+Server Compose passes the new flag. Runtime: paper, live false, execution true, plan schedule true,
+momentum execution true. Orders are sent only while the owner's console toggle is on. First entries
+follow the first session of an ISO week (2026-10-06 close → 2026-10-07 orders).
