@@ -33,12 +33,16 @@ import { startDailyScheduleTimer } from './dailyScheduleTimer.ts';
 import { createConsoleQueries, type ConsoleReadRepository } from '../application/console/index.ts';
 import { registerConsoleRoutes } from '../interfaces/http/console.ts';
 import { createTradingControls, type TradingControlRepository } from '../application/controls/index.ts';
+import type { ApiQuota, NewsRepository, NewsSearch } from '../application/news/ports.ts';
+import { createNewsCollector } from '../application/news/collect.ts';
+import { createNewsQuery } from '../application/news/query.ts';
+import { UNIVERSE, universeSymbols } from '../domain/market/universe.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
   dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
     dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string;
-    tradingControls?: TradingControlRepository },
+    tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -87,16 +91,24 @@ export function createApp(
     repository: dependencies.tradingControls, auth: dependencies.auth, account: dependencies.executionAccount,
     environmentAllows: environment.PAPER_LOOP_SCHEDULE_ENABLED && environment.PAPER_LOOP_ENABLED && environment.PAPER_ORDER_EXECUTION_ENABLED,
   }) : undefined;
-  registerUserConsole(app, { controls, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
+  const newsCaps = { daily: environment.NAVER_DAILY_CALL_CAP, monthly: environment.NAVER_MONTHLY_CALL_CAP };
+  const news = dependencies.newsRepository ? createNewsQuery({ news: dependencies.newsRepository, quota: dependencies.apiQuota,
+    provider: dependencies.newsSearch?.provider ?? 'naver-news', caps: newsCaps }) : undefined;
+  const collectNews = dependencies.newsSearch && dependencies.newsRepository && dependencies.apiQuota ? createNewsCollector({
+    search: dependencies.newsSearch, quota: dependencies.apiQuota, news: dependencies.newsRepository, caps: newsCaps,
+    symbols: UNIVERSE.symbols }) : undefined;
+  registerUserConsole(app, { news, controls, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
     portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
     health: createHealthCheck(database, new PaperBroker()) });
-  if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED) {
+  if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED || environment.NEWS_SCHEDULE_ENABLED) {
+    if (environment.NEWS_SCHEDULE_ENABLED && !collectNews) throw new Error('News schedule dependencies required');
     if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick || !controls))) {
       throw new Error('Daily schedule dependencies required');
     }
     const report = (event: string, detail?: Record<string, string>) => app.log.info({ event, ...detail }, 'Daily schedule');
     const step = createDailySchedule({ report,
-      collect: environment.MARKET_DATA_SCHEDULE_ENABLED ? collect : undefined,
+      collect: environment.MARKET_DATA_SCHEDULE_ENABLED ? collect : undefined, symbols: universeSymbols(),
+      news: environment.NEWS_SCHEDULE_ENABLED ? collectNews : undefined,
       loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick && controls ? { prepare, tick, isEnabled: controls.isAutoTradingEnabled } : undefined });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });

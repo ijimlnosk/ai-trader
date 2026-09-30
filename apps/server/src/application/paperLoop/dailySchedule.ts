@@ -5,10 +5,13 @@ import type { PaperLoop } from './index.ts';
 import type { PaperLoopInput } from './input.ts';
 import { PaperLoopError } from './ports.ts';
 import type { PaperLoopPreparer } from './prepare.ts';
+import type { NewsCollector } from '../news/collect.ts';
 
 const MORNING_COLLECT_START_MINUTE = 8 * 60;
 const MORNING_COLLECT_END_MINUTE = 8 * 60 + 50;
 const TICK_START_MINUTE = 9 * 60 + 5;
+const NEWS_START_MINUTE = 8 * 60 + 10;
+const NEWS_END_MINUTE = 15 * 60 + 30;
 const TICK_END_MINUTE = 15 * 60;
 const MAX_COLLECT_ATTEMPTS = 3;
 const COLLECT_RETRY_MS = 10 * 60000;
@@ -27,12 +30,17 @@ const seoulMinute = (now: Date) => {
  */
 export function createDailySchedule(deps: {
   collect?: DailySnapshotCollector | undefined;
+  /** Symbols to archive each phase; the loop symbol must be included. Defaults to 005930 only. */
+  symbols?: readonly string[] | undefined;
+  /** Once per session day, after the morning confirmation window. */
+  news?: NewsCollector | undefined;
   /** isEnabled is the owner's pause/resume control; failures to read it count as paused. */
   loop?: { prepare: PaperLoopPreparer; tick: PaperLoop; isEnabled: () => Promise<boolean> } | undefined;
   report: ScheduleReport; now?: () => Date;
 }) {
   const now = deps.now ?? (() => new Date());
-  const state = { collectDate: '', collectAttempts: 0, collectDone: false, nextCollectAt: 0,
+  const symbols = deps.symbols ?? ['005930'];
+  const state = { collectDate: '', collectAttempts: 0, pending: [] as string[], nextCollectAt: 0, newsDate: '',
     tickDate: '', pausedDate: '', tracking: null as PaperLoopInput | null, halted: false };
 
   async function collectStep(at: Date, today: string) {
@@ -42,17 +50,32 @@ export function createDailySchedule(deps: {
     const morning = krxSessionStatus(today) === 'session' && minute >= MORNING_COLLECT_START_MINUTE && minute < MORNING_COLLECT_END_MINUTE;
     if (!morning && completedSessionAt(at) !== today) return;
     const phase = `${today}:${morning ? 'morning' : 'evening'}`;
-    if (state.collectDate !== phase) Object.assign(state, { collectDate: phase, collectAttempts: 0, collectDone: false, nextCollectAt: 0 });
-    if (state.collectDone || state.collectAttempts >= MAX_COLLECT_ATTEMPTS || at.getTime() < state.nextCollectAt) return;
+    if (state.collectDate !== phase) Object.assign(state, { collectDate: phase, collectAttempts: 0, pending: [...symbols], nextCollectAt: 0 });
+    if (state.pending.length === 0 || state.collectAttempts >= MAX_COLLECT_ATTEMPTS || at.getTime() < state.nextCollectAt) return;
     state.collectAttempts += 1;
     state.nextCollectAt = at.getTime() + COLLECT_RETRY_MS;
+    // Sequential through the paced broker client; only symbols that did not archive are retried.
+    for (const symbol of [...state.pending]) {
+      try {
+        const result = await deps.collect(symbol);
+        if (result.status === 'skipped') { deps.report('market_snapshot_skipped', { symbol, reason: result.reason }); continue; }
+        state.pending = state.pending.filter((pending) => pending !== symbol);
+        deps.report(`market_snapshot_${result.status}`, { symbol, through: result.snapshot.through,
+          revisedDates: result.snapshot.revisedDates.join(',') });
+      } catch { deps.report('market_snapshot_failed', { symbol, attempt: String(state.collectAttempts) }); }
+    }
+  }
+
+  async function newsStep(at: Date, today: string) {
+    const minute = seoulMinute(at);
+    if (!deps.news || state.newsDate === today || krxSessionStatus(today) !== 'session'
+      || minute < NEWS_START_MINUTE || minute >= NEWS_END_MINUTE) return;
+    state.newsDate = today;
     try {
-      const result = await deps.collect('005930');
-      if (result.status === 'skipped') return deps.report('market_snapshot_skipped', { reason: result.reason });
-      state.collectDone = true;
-      deps.report(`market_snapshot_${result.status}`, { through: result.snapshot.through,
-        revisedDates: result.snapshot.revisedDates.join(',') });
-    } catch { deps.report('market_snapshot_failed', { attempt: String(state.collectAttempts) }); }
+      const result = await deps.news();
+      deps.report('news_collected', { calls: String(result.calls), saved: String(result.saved), failed: String(result.failed),
+        budgetExhausted: String(result.budgetExhausted) });
+    } catch { deps.report('news_failed'); }
   }
 
   async function runTick(input: PaperLoopInput) {
@@ -93,6 +116,7 @@ export function createDailySchedule(deps: {
     const today = seoulOrderDate(at.toISOString());
     await collectStep(at, today);
     await tickStep(at, today);
+    await newsStep(at, today);
   };
 }
 export type DailyScheduleStep = ReturnType<typeof createDailySchedule>;

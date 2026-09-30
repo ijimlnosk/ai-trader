@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AuthService } from '../../application/auth/index.ts';
 import { AuthError, type SessionIdentity } from '../../application/auth/ports.ts';
 import { ControlError, type TradingControls } from '../../application/controls/index.ts';
+import type { NewsQuery } from '../../application/news/query.ts';
 import type { ConsoleQueries } from '../../application/console/index.ts';
 import type { createHealthCheck } from '../../application/health.ts';
 import type { createMarket } from '../../application/market.ts';
@@ -17,6 +18,7 @@ export function registerUserConsole(app: FastifyInstance, deps: {
   auth: AuthService | undefined; account: string; queries: ConsoleQueries | undefined;
   portfolio: ReturnType<typeof createPortfolioQuery>; market: ReturnType<typeof createMarket>; health: ReturnType<typeof createHealthCheck>;
   controls?: TradingControls | undefined;
+  news?: NewsQuery | undefined;
 }) {
   app.register(async routes => {
     routes.addHook('onRequest', async (request, reply) => {
@@ -37,8 +39,9 @@ export function registerUserConsole(app: FastifyInstance, deps: {
     });
     routes.get<{ Params: { name: string } }>('/api/v1/me/console/:name', async (request, reply) => {
       const name = request.params.name;
-      if (['orders', 'loop-runs', 'snapshots'].includes(name)) {
+      if (['orders', 'loop-runs', 'snapshots', 'news'].includes(name)) {
         const { limit } = query.parse(request.query);
+        if (name === 'news') return deps.news ? deps.news(limit) : { items: [], usage: null };
         if (name === 'orders') return { items: await deps.queries!.orders(limit) };
         if (name === 'loop-runs') return { items: await deps.queries!.loopRuns(limit) };
         return { items: await deps.queries!.snapshots(limit) };

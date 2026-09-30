@@ -51,5 +51,5 @@ export interface PortfolioResponse {
 export { RiskRejection, type RiskRejectionReason, type RiskDecision, type RiskEvaluateRequest } from './risk.js';
 export type { CreateOrderRequest, ExecutionStatus, OrderResponse } from './orders.js';
 export type { StrategyProvenance, DailyCandle, MarketDataset, StrategyEvaluateRequest } from './strategy.js';
-export type { ConsoleStatusResponse, ConsoleLoopStatus, ConsoleLoopRun, ConsoleSnapshot, ConsoleList, ConsoleControlsResponse } from './console.js';
+export type { ConsoleStatusResponse, ConsoleLoopStatus, ConsoleLoopRun, ConsoleSnapshot, ConsoleList, ConsoleControlsResponse, ConsoleNewsResponse } from './console.js';
 export type { ConsoleUser, ConsoleSessionResponse } from './auth.js';

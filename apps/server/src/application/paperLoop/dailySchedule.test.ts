@@ -30,7 +30,7 @@ describe('daily schedule collection', () => {
     s.state.now = new Date('2026-09-29T09:30:00Z');
     await s.step(); await s.step();
     expect(s.collect).toHaveBeenCalledTimes(1);
-    expect(s.report).toHaveBeenCalledWith('market_snapshot_saved', { through: '20260929', revisedDates: '' });
+    expect(s.report).toHaveBeenCalledWith('market_snapshot_saved', { symbol: '005930', through: '20260929', revisedDates: '' });
   });
 
   it('retries failures and skips at most three times, ten minutes apart', async () => {
@@ -41,7 +41,7 @@ describe('daily schedule collection', () => {
       await s.step();
     }
     expect(s.collect).toHaveBeenCalledTimes(3);
-    expect(s.report).toHaveBeenLastCalledWith('market_snapshot_failed', { attempt: '3' });
+    expect(s.report).toHaveBeenLastCalledWith('market_snapshot_failed', { symbol: '005930', attempt: '3' });
   });
 
   it('re-collects once in the 08:00-08:50 Seoul window of a session to confirm the previous bar', async () => {
@@ -67,6 +67,39 @@ describe('daily schedule collection', () => {
       await s.step();
       expect(s.collect).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe('daily schedule universe and news', () => {
+  it('archives every symbol and retries only the ones that failed', async () => {
+    const report = vi.fn();
+    const collect = vi.fn<DailySnapshotCollector>(async (symbol) => {
+      if (symbol === '000660' && collect.mock.calls.filter(([s]) => s === '000660').length === 1) throw new Error('timeout');
+      return { status: 'saved', snapshot: { ...snapshot, symbol } } as never;
+    });
+    const time = clock('2026-09-29T09:30:00Z');
+    const step = createDailySchedule({ collect, symbols: ['005930', '000660', '373220'], report, now: time.now });
+    await step();
+    expect(collect.mock.calls.map(([symbol]) => symbol)).toEqual(['005930', '000660', '373220']);
+    time.state.now = new Date('2026-09-29T09:40:00Z');
+    await step(); await step();
+    expect(collect.mock.calls.map(([symbol]) => symbol)).toEqual(['005930', '000660', '373220', '000660']);
+  });
+
+  it('collects news once per session day after 08:10 and reports budget exhaustion', async () => {
+    const report = vi.fn();
+    const news = vi.fn(async () => ({ calls: 3, saved: 5, failed: 0, budgetExhausted: true }));
+    const time = clock('2026-09-29T23:09:00Z');
+    const step = createDailySchedule({ news, report, now: time.now });
+    await step();
+    expect(news).not.toHaveBeenCalled();
+    time.state.now = new Date('2026-09-29T23:10:00Z');
+    await step(); await step();
+    expect(news).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith('news_collected', { calls: '3', saved: '5', failed: '0', budgetExhausted: 'true' });
+    const closed = createDailySchedule({ news, report, now: () => new Date('2026-10-05T01:00:00Z') });
+    await closed();
+    expect(news).toHaveBeenCalledTimes(1);
   });
 });
 

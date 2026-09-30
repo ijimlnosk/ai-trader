@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, check, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, check, index, integer, jsonb, numeric, pgEnum, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import type { CreateOrderRequest, ExecutionStatus } from '@ai-trader/contracts';
 import type { OrderAudit } from '../../domain/orders.ts';
 
@@ -234,3 +234,25 @@ export const tradingControlEvents = pgTable('trading_control_events', {
   autoTradingEnabled: boolean('auto_trading_enabled').notNull(),
   createdAt: instant('created_at').notNull().defaultNow(),
 }, (t) => [index('trading_control_events_account_idx').on(t.executionAccount, t.createdAt)]);
+
+/** Per-provider call counters by Seoul day ('d:YYYYMMDD') and month ('m:YYYYMM'); consumed before each call. */
+export const externalApiUsage = pgTable('external_api_usage', {
+  provider: text('provider').notNull(),
+  period: text('period').notNull(),
+  used: integer('used').notNull().default(0),
+  updatedAt: instant('updated_at').notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.provider, t.period] }), check('external_api_usage_used', sql`${t.used} >= 0`)]);
+
+/** Archived news search results per universe symbol; never used for orders directly. */
+export const newsItems = pgTable('news_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  symbol: text('symbol').notNull(),
+  provider: text('provider').notNull(),
+  query: text('query').notNull(),
+  title: text('title').notNull(),
+  description: text('description').notNull(),
+  link: text('link').notNull(),
+  originalLink: text('original_link'),
+  publishedAt: instant('published_at').notNull(),
+  collectedAt: instant('collected_at').notNull(),
+}, (t) => [uniqueIndex('news_items_symbol_link_idx').on(t.symbol, t.link), index('news_items_published_idx').on(t.publishedAt)]);

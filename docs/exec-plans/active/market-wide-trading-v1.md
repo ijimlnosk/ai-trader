@@ -29,8 +29,8 @@ and add a news/disclosure analysis layer that can only make trading more conserv
 # Plan
 
 Phase C1 — universe and data (order-free)
-- [ ] Reviewed universe file (versioned, sourced), initially ~50 liquid KOSPI/KOSDAQ names.
-- [ ] Collect/confirm daily snapshots for every universe symbol plus current holdings; one
+- [x] Reviewed universe file (versioned, sourced), initially ~50 liquid KOSPI/KOSDAQ names (54, decision 0011).
+- [x] Collect/confirm daily snapshots for every universe symbol (holdings outside the universe: pending); one
       calendar-aligned dataset per session; partial failures skip only that symbol and are shown.
 - [ ] Console: universe coverage and data freshness.
 
@@ -43,7 +43,7 @@ Phase C2 — multi-symbol decisions (paper)
 - [ ] Console: today's plan (scanned, signals, approved, skipped with reasons, orders).
 
 Phase C3 — news and disclosures (analysis only)
-- [ ] Sources behind adapters: DART OpenAPI disclosures; a news search API (e.g. Naver). Keys
+- [x] Naver news search adapter with persisted hard call budget and daily archive (DART pending). Keys
       supplied by the owner in the server `.env`; none in chat or the repository.
 - [ ] AI provider abstraction (Claude) producing a validated structured assessment per symbol
       (event flags, sentiment, confidence, cited items). Timeouts and malformed output → no
@@ -66,6 +66,7 @@ plans before enabling orders; evidence documents per enablement.
 # Progress
 
 2026-09-30: plan drafted; KIS paper capability probe recorded above.
+2026-09-30: universe (54), universe collection, Naver news archive with hard budget and console news tab implemented.
 
 # Remaining Work
 

@@ -2,6 +2,8 @@ import { createAuth } from '../application/auth/index.ts';
 import { createAuthRepository } from '../infrastructure/database/authRepository.ts';
 import { passwordVerifier } from '../infrastructure/auth/password.ts';
 import { createTradingControlRepository } from '../infrastructure/database/tradingControlRepository.ts';
+import { createNewsRepository } from '../infrastructure/database/newsRepository.ts';
+import { createApiQuotaRepository } from '../infrastructure/database/apiQuotaRepository.ts';
 import { createPaperLoopRepository } from '../infrastructure/database/paperLoopRepository.ts';
 import { createDatabase } from '../infrastructure/database/index.ts';
 import { createRuntimeApp } from './createRuntimeApp.ts';
@@ -19,7 +21,7 @@ async function start() {
   const executionAccount = createHash('sha256').update(`paper:${environment.KIS_ACCOUNT_NO ?? ''}:${environment.KIS_ACCOUNT_PRODUCT_CODE ?? ''}`).digest('hex');
   const app = createRuntimeApp(environment, database, true, undefined, undefined, createOrderRepository(database.db, executionAccount), createStrategyRunRepository(database.db, executionAccount), createPaperLoopRepository(database.db, executionAccount),
     createDailySnapshotRepository(database.db), createConsoleReadRepository(database.db, executionAccount), createAuth(createAuthRepository(database.db), passwordVerifier), executionAccount,
-    createTradingControlRepository(database.db));
+    createTradingControlRepository(database.db), createNewsRepository(database.db), createApiQuotaRepository(database.db));
   app.addHook('onClose', () => database.close());
   let stopping = false;
   const shutdown = async () => {

@@ -25,6 +25,12 @@ const schema = z.object({
   PAPER_LOOP_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   ORDER_API_TOKEN: optionalSecret,
   CONSOLE_READ_TOKEN: optionalSecret,
+  NAVER_CLIENT_ID: optionalSecret,
+  NAVER_CLIENT_SECRET: optionalSecret,
+  // Self-imposed caps far below the provider's 25,000/day and 775,000/month; hard maxima enforced here.
+  NAVER_DAILY_CALL_CAP: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(20000)).default(1000),
+  NAVER_MONTHLY_CALL_CAP: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(600000)).default(20000),
+  NEWS_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   TRADING_KILL_SWITCH_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
 }).superRefine((value, ctx) => {
   if ((value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_ENABLED) && (!value.ORDER_API_TOKEN || value.ORDER_API_TOKEN.length < 32)) {
@@ -33,6 +39,9 @@ const schema = z.object({
   // A read token must not double as the order token, so leaking it cannot authorize orders.
   if (value.CONSOLE_READ_TOKEN && (value.CONSOLE_READ_TOKEN.length < 32 || value.CONSOLE_READ_TOKEN === value.ORDER_API_TOKEN)) {
     ctx.addIssue({ code: 'custom', path: ['CONSOLE_READ_TOKEN'], message: 'At least 32 characters and distinct from ORDER_API_TOKEN' });
+  }
+  if (value.NEWS_SCHEDULE_ENABLED && (!value.NAVER_CLIENT_ID || !value.NAVER_CLIENT_SECRET)) {
+    ctx.addIssue({ code: 'custom', path: ['NEWS_SCHEDULE_ENABLED'], message: 'Naver credentials required' });
   }
   // The automatic tick is a third deliberate opt-in on top of both loop and execution opt-ins.
   if (value.PAPER_LOOP_SCHEDULE_ENABLED && (!value.PAPER_LOOP_ENABLED || !value.PAPER_ORDER_EXECUTION_ENABLED || value.PAPER_LOOP_TASK_FILE)) {

@@ -56,3 +56,9 @@ export interface ConsoleControlsResponse {
   autoTrading: { enabled: boolean; environmentAllows: boolean; effective: boolean; updatedAt: string | null; updatedByEmail: string | null };
   events: { enabled: boolean; at: string; byEmail: string | null }[];
 }
+
+export interface ConsoleNewsResponse {
+  items: { id: string; symbol: string; name: string; title: string; description: string; link: string; publishedAt: string }[];
+  /** Calls used today/this month against the self-imposed caps (Seoul calendar). */
+  usage: { provider: string; daily: number; monthly: number; dailyCap: number; monthlyCap: number } | null;
+}

@@ -2,6 +2,8 @@ import { createPaperLoopRepository } from './paperLoopRepository.ts';
 import { createDailySnapshotRepository } from './dailySnapshotRepository.ts';
 import { createConsoleReadRepository } from './consoleReadRepository.ts';
 import { createTradingControlRepository } from './tradingControlRepository.ts';
+import { createApiQuotaRepository } from './apiQuotaRepository.ts';
+import { createNewsRepository } from './newsRepository.ts';
 import { createDailySnapshotCollector } from '../../application/marketData/collect.ts';
 import { createPaperLoopPreparer } from '../../application/paperLoop/prepare.ts';
 import { bar, stubHistory } from '../../../test/marketDataFixtures.ts';
@@ -43,7 +45,7 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
       SELECT id,'005930','BUY',2,70000,'KRW','historical-account','987','20260915','FILLED',2,140000,now() FROM p`);
     const ledgerMigration = await readFile(new URL('../../../drizzle/0002_lean_black_panther.sql', import.meta.url), 'utf8');
     await database.db.execute(sql.raw(ledgerMigration));
-    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth', '0007_market_snapshot_confirmation', '0008_trading_controls']) {
+    for (const name of ['0003_tearful_smasher', '0004_paper_loop_claims', '0005_market_daily_snapshots', '0006_console_auth', '0007_market_snapshot_confirmation', '0008_trading_controls', '0009_news_and_api_usage']) {
       await database.db.execute(sql.raw(await readFile(new URL(`../../../drizzle/${name}.sql`, import.meta.url), 'utf8')));
     }
   });
@@ -87,6 +89,29 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     expect((await controls.events(account, 10)).map((event) => event.enabled)).toEqual([false, true]);
     expect(await controls.get(randomUUID())).toMatchObject({ enabled: false });
     expect(await controls.events(randomUUID(), 10)).toEqual([]);
+  });
+  it('api quota never exceeds its daily or monthly cap under concurrency and persists across instances', async () => {
+    const provider = `test-${randomUUID()}`;
+    const results = await Promise.all(Array.from({ length: 20 }, () => createApiQuotaRepository(database.db).consume(provider, '20260930', '202609', { daily: 5, monthly: 100 })));
+    expect(results.filter(Boolean)).toHaveLength(5);
+    const quota = createApiQuotaRepository(database.db);
+    expect(await quota.usage(provider, '20260930', '202609')).toEqual({ daily: 5, monthly: 5 });
+    expect(await quota.consume(provider, '20261001', '202610', { daily: 5, monthly: 100 })).toBe(true);
+    const monthly = `test-${randomUUID()}`;
+    expect(await quota.consume(monthly, '20260930', '202609', { daily: 5, monthly: 1 })).toBe(true);
+    expect(await quota.consume(monthly, '20261001', '202609', { daily: 5, monthly: 1 })).toBe(false);
+    expect(await quota.usage(monthly, '20261001', '202609')).toEqual({ daily: 0, monthly: 1 });
+  });
+
+  it('news archive deduplicates by symbol and link and lists newest first', async () => {
+    const news = createNewsRepository(database.db);
+    const base = { provider: 'naver-news', query: 'q', description: 'd', originalLink: null, collectedAt: '2026-09-30T00:00:00.000Z' };
+    const link = `https://news.example/${randomUUID()}`;
+    expect(await news.save([{ ...base, symbol: '005930', title: 'a', link, publishedAt: '2026-09-29T00:00:00.000Z' },
+      { ...base, symbol: '000660', title: 'b', link, publishedAt: '2026-09-30T00:00:00.000Z' }])).toBe(2);
+    expect(await news.save([{ ...base, symbol: '005930', title: 'a2', link, publishedAt: '2026-09-29T00:00:00.000Z' }])).toBe(0);
+    const recent = await news.recent(2);
+    expect(recent[0]!.publishedAt >= recent[1]!.publishedAt).toBe(true);
   });
   it('preserves existing rows after expansion', async () => {
     const legacy = await database.db.select().from(orders).where(isNull(orders.executionAccount));
