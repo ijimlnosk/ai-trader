@@ -163,3 +163,13 @@ Commits through `21675be` (decision 0014); evidence `/home/jinsol/ai-trader-back
 Server Compose passes the new flag. Runtime: paper, live false, execution true, plan schedule true,
 momentum execution true. Orders are sent only while the owner's console toggle is on. First entries
 follow the first session of an ISO week (2026-10-06 close → 2026-10-07 orders).
+
+## AI news screening enabled, record-only (2026-09-30 16:29 KST)
+
+Commit `598d413` (decision 0015, migration 0010); evidence `/home/jinsol/ai-trader-backups/ai-screen-deploy-20260930`
+(backups, DB dump ok, read-only ledger snapshots equal). The Anthropic key was copied from the owner's
+git-ignored local `.env` without printing it and validated with a free models-list call (200).
+`.env`: `NEWS_ANALYSIS_ENABLED=true`; model `claude-opus-5-5`; budgets $0.50/day, $6.50/month.
+Screening targets momentum BUY candidates and holdings; with no holdings and no rebalance until the
+2026-10-06 close, the first model calls are expected on 2026-10-07. Measurement calls today: 15
+(≈ $0.19) from the operator workstation, outside the server budget ledger.
