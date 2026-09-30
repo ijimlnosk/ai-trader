@@ -7,13 +7,16 @@ const item = { title: '<b>삼성전자</b> &quot;반등&quot;', originallink: 'h
 const ok = (body: unknown, status = 200) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
 
 it('queries newest news with server-side credentials and normalizes items', async () => {
-  const fetcher = ok({ items: [item, { ...item, link: 'javascript:alert(1)', originallink: 'http://x' }, { ...item, pubDate: 'nope' }] });
+  const fetcher = ok({ items: [item, { ...item, link: 'javascript:alert(1)', originallink: 'ftp://x' }, { ...item, pubDate: 'nope' },
+    { ...item, link: 'http://publisher.example/b', originallink: 'http://publisher.example/b' }] });
   const articles = await createNaverNewsSearch(config, fetcher as unknown as typeof fetch).search('삼성전자 주가');
   expect(articles).toEqual([{ title: '삼성전자 "반등"', description: '설명 & 요약', link: 'https://n.news.naver.com/a',
-    originalLink: 'https://origin.example/a', publishedAt: '2026-09-29T23:15:00.000Z' }]);
+    originalLink: 'https://origin.example/a', publishedAt: '2026-09-29T23:15:00.000Z' },
+    { title: '삼성전자 "반등"', description: '설명 & 요약', link: 'http://publisher.example/b', originalLink: 'http://publisher.example/b',
+      publishedAt: '2026-09-29T23:15:00.000Z' }]);
   const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit];
-  expect(url).toBe('https://openapi.naver.com/v1/search/news.json?query=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90+%EC%A3%BC%EA%B0%80&display=20&sort=date');
-  expect(init).toMatchObject({ redirect: 'error', headers: { 'X-Naver-Client-Id': 'fixture-id', 'X-Naver-Client-Secret': 'fixture-secret' } });
+  expect(url).toBe('https://naverapihub.apigw.ntruss.com/search/v1/news?query=%EC%82%BC%EC%84%B1%EC%A0%84%EC%9E%90+%EC%A3%BC%EA%B0%80&display=20&sort=date');
+  expect(init).toMatchObject({ redirect: 'error', headers: { 'X-NCP-APIGW-API-KEY-ID': 'fixture-id', 'X-NCP-APIGW-API-KEY': 'fixture-secret' } });
 });
 
 it('rejects error statuses and malformed bodies without echoing credentials', async () => {

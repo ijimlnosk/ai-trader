@@ -96,7 +96,7 @@ export function createApp(
   }) : undefined;
   const newsCaps = { daily: environment.NAVER_DAILY_CALL_CAP, monthly: environment.NAVER_MONTHLY_CALL_CAP };
   const news = dependencies.newsRepository ? createNewsQuery({ news: dependencies.newsRepository, quota: dependencies.apiQuota,
-    provider: dependencies.newsSearch?.provider ?? 'naver-news', caps: newsCaps }) : undefined;
+    provider: dependencies.newsSearch?.provider ?? 'naver-api-hub-news', caps: newsCaps }) : undefined;
   const collectNews = dependencies.newsSearch && dependencies.newsRepository && dependencies.apiQuota ? createNewsCollector({
     search: dependencies.newsSearch, quota: dependencies.apiQuota, news: dependencies.newsRepository, caps: newsCaps,
     symbols: UNIVERSE.symbols }) : undefined;

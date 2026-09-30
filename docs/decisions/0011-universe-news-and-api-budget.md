@@ -14,7 +14,8 @@ The paper loop still trades `005930` only until multi-symbol decisions are imple
 
 ## News and budget
 
-Naver news search (owner-provided credentials in the server `.env`) archives up to 20 newest
+NAVER API Hub news search (NCP, API code `NAVER_SCH_NEWS`, `naverapihub.apigw.ntruss.com/search/v1/news`,
+headers `X-NCP-APIGW-API-KEY-ID`/`X-NCP-APIGW-API-KEY`; owner-provided credentials in the server `.env`) archives up to 20 newest
 headlines per universe symbol once per session day after 08:10 KST, query `<name> 주가`.
 Items are display-only; no decision uses them yet.
 
