@@ -11,7 +11,7 @@ const run = { runKey: 'plan-20260930-abc', sessionDate: '20260930', createdAt: '
   result: { evaluations: [signal('000660', 'BUY', 1.5), signal('005930', null, 1), signal('035420', 'BUY', 2.5)]
     .map((s) => ({ signal: s, context, policy: {}, decision: null, orderKey: 'k' })) } } as unknown as StrategyRunRecord;
 const flags = { tradingMode: 'paper' as const, liveTradingEnabled: false, paperExecutionEnabled: true, paperLoopEnabled: true,
-  killSwitchEnabled: false, marketDataScheduleEnabled: true, paperLoopScheduleEnabled: true };
+  killSwitchEnabled: false, marketDataScheduleEnabled: true, paperLoopScheduleEnabled: true, momentumExecutionEnabled: false };
 const repository = (latest: StrategyRunRecord | null) => ({ listOrders: async () => [], listLoopRuns: async () => [], listSnapshots: async () => [],
   latestPlanRun: async (prefix: string) => (latest && latest.runKey.startsWith(prefix) ? latest : null) });
 

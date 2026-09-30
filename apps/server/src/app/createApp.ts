@@ -40,6 +40,7 @@ import { UNIVERSE, universeSymbols } from '../domain/market/universe.ts';
 import { createUniverseDatasetBuilder } from '../application/marketData/universeDataset.ts';
 import { createSessionPlanRunner } from '../application/strategy/sessionPlan.ts';
 import { createMomentumPlanRunner } from '../application/strategy/momentumPlan.ts';
+import { createMomentumExecutor } from '../application/strategy/momentumExecution.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -88,12 +89,13 @@ export function createApp(
     tradingMode: environment.BROKER_MODE, liveTradingEnabled: environment.LIVE_TRADING_ENABLED,
     paperExecutionEnabled: environment.PAPER_ORDER_EXECUTION_ENABLED, paperLoopEnabled: environment.PAPER_LOOP_ENABLED,
     killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED, marketDataScheduleEnabled: environment.MARKET_DATA_SCHEDULE_ENABLED,
-    paperLoopScheduleEnabled: environment.PAPER_LOOP_SCHEDULE_ENABLED } }) : undefined;
+    paperLoopScheduleEnabled: environment.PAPER_LOOP_SCHEDULE_ENABLED, momentumExecutionEnabled: environment.MOMENTUM_EXECUTION_ENABLED } }) : undefined;
   registerConsoleRoutes(app, consoleQueries, environment.CONSOLE_READ_TOKEN);
   registerAuthRoutes(app, dependencies.auth, dependencies.executionAccount ?? '');
   const controls = dependencies.tradingControls && dependencies.auth && dependencies.executionAccount ? createTradingControls({
     repository: dependencies.tradingControls, auth: dependencies.auth, account: dependencies.executionAccount,
-    environmentAllows: environment.PAPER_LOOP_SCHEDULE_ENABLED && environment.PAPER_LOOP_ENABLED && environment.PAPER_ORDER_EXECUTION_ENABLED,
+    environmentAllows: environment.PAPER_ORDER_EXECUTION_ENABLED
+      && ((environment.PAPER_LOOP_SCHEDULE_ENABLED && environment.PAPER_LOOP_ENABLED) || environment.MOMENTUM_EXECUTION_ENABLED),
   }) : undefined;
   const newsCaps = { daily: environment.NAVER_DAILY_CALL_CAP, monthly: environment.NAVER_MONTHLY_CALL_CAP };
   const news = dependencies.newsRepository ? createNewsQuery({ news: dependencies.newsRepository, quota: dependencies.apiQuota,
@@ -112,6 +114,9 @@ export function createApp(
   if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED || environment.NEWS_SCHEDULE_ENABLED
     || environment.UNIVERSE_PLAN_SCHEDULE_ENABLED) {
     if (environment.UNIVERSE_PLAN_SCHEDULE_ENABLED && !planRunners) throw new Error('Plan schedule dependencies required');
+    const momentumExecutor = environment.MOMENTUM_EXECUTION_ENABLED && dependencies.orders && dependencies.consoleRead && controls
+      ? createMomentumExecutor({ plans: dependencies.consoleRead, orders: dependencies.orders, isEnabled: controls.isAutoTradingEnabled }) : undefined;
+    if (environment.MOMENTUM_EXECUTION_ENABLED && !momentumExecutor) throw new Error('Momentum execution dependencies required');
     if (environment.NEWS_SCHEDULE_ENABLED && !collectNews) throw new Error('News schedule dependencies required');
     if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick || !controls))) {
       throw new Error('Daily schedule dependencies required');
@@ -121,6 +126,7 @@ export function createApp(
       collect: environment.MARKET_DATA_SCHEDULE_ENABLED ? collect : undefined, symbols: universeSymbols(),
       news: environment.NEWS_SCHEDULE_ENABLED ? collectNews : undefined,
       plans: environment.UNIVERSE_PLAN_SCHEDULE_ENABLED ? planRunners : undefined,
+      executeMomentum: environment.MOMENTUM_EXECUTION_ENABLED ? momentumExecutor : undefined,
       loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick && controls ? { prepare, tick, isEnabled: controls.isAutoTradingEnabled } : undefined });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });

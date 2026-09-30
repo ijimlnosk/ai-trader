@@ -131,6 +131,31 @@ describe('daily schedule universe plan', () => {
   });
 });
 
+describe('daily schedule momentum execution', () => {
+  it('executes every step inside the window until done, reporting changes only', async () => {
+    const report = vi.fn();
+    const executeMomentum = vi.fn().mockResolvedValueOnce({ status: 'no_plan' }).mockResolvedValueOnce({ status: 'pending', symbol: '000001' })
+      .mockResolvedValueOnce({ status: 'pending', symbol: '000001' }).mockResolvedValueOnce({ status: 'done', submitted: 2, filled: 2, failed: 0 });
+    const time = clock('2026-10-07T00:04:00Z');
+    const step = createDailySchedule({ executeMomentum, report, now: time.now });
+    await step();
+    expect(executeMomentum).not.toHaveBeenCalled();
+    time.state.now = new Date('2026-10-07T00:05:00Z');
+    for (let i = 0; i < 6; i += 1) await step();
+    expect(executeMomentum).toHaveBeenCalledTimes(4);
+    expect(report.mock.calls.map(([event]) => event)).toEqual(['momentum_execution_no_plan', 'momentum_execution_pending', 'momentum_execution_done']);
+  });
+
+  it('stops for the day after a halt', async () => {
+    const report = vi.fn();
+    const executeMomentum = vi.fn().mockResolvedValue({ status: 'halted', symbol: '000001', reason: 'UNKNOWN' });
+    const step = createDailySchedule({ executeMomentum, report, now: () => new Date('2026-10-07T01:00:00Z') });
+    await step(); await step();
+    expect(executeMomentum).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith('momentum_execution_halted', { symbol: '000001', reason: 'UNKNOWN' });
+  });
+});
+
 describe('daily schedule ticks', () => {
   it('ticks once per session inside 09:05-15:00 Seoul', async () => {
     const s = setup('2026-09-30T00:04:00Z');

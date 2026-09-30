@@ -7,6 +7,7 @@ import { PaperLoopError } from './ports.ts';
 import type { PaperLoopPreparer } from './prepare.ts';
 import type { NewsCollector } from '../news/collect.ts';
 import type { SessionPlanRunner } from '../strategy/sessionPlan.ts';
+import type { MomentumExecutor } from '../strategy/momentumExecution.ts';
 
 const MORNING_COLLECT_START_MINUTE = 8 * 60;
 const MORNING_COLLECT_END_MINUTE = 8 * 60 + 50;
@@ -37,6 +38,8 @@ export function createDailySchedule(deps: {
   news?: NewsCollector | undefined;
   /** Order-free universe evaluation, once per session day inside the tick window; ignores the pause. */
   plans?: readonly SessionPlanRunner[] | undefined;
+  /** Executes today's momentum plan item by item; repeated every step until done or halted. */
+  executeMomentum?: MomentumExecutor | undefined;
   /** isEnabled is the owner's pause/resume control; failures to read it count as paused. */
   loop?: { prepare: PaperLoopPreparer; tick: PaperLoop; isEnabled: () => Promise<boolean> } | undefined;
   report: ScheduleReport; now?: () => Date;
@@ -44,7 +47,7 @@ export function createDailySchedule(deps: {
   const now = deps.now ?? (() => new Date());
   const symbols = deps.symbols ?? ['005930'];
   const state = { collectDate: '', collectAttempts: 0, pending: [] as string[], nextCollectAt: 0, newsDate: '', planDate: '',
-    planPending: [] as number[], planAttempts: 0, nextPlanAt: 0,
+    planPending: [] as number[], planAttempts: 0, nextPlanAt: 0, executionDate: '', executionStatus: '',
     tickDate: '', pausedDate: '', tracking: null as PaperLoopInput | null, halted: false };
 
   async function collectStep(at: Date, today: string) {
@@ -86,6 +89,25 @@ export function createDailySchedule(deps: {
           ? { runKey: result.runKey, scanned: String(result.scanned), excluded: String(result.excluded) } : { reason: result.reason });
       } catch { deps.report('session_plan_failed', { attempt: String(state.planAttempts) }); }
     }
+  }
+
+  async function executionStep(at: Date, today: string) {
+    const minute = seoulMinute(at);
+    if (!deps.executeMomentum || krxSessionStatus(today) !== 'session' || minute < TICK_START_MINUTE || minute >= TICK_END_MINUTE) return;
+    if (state.executionDate !== today) Object.assign(state, { executionDate: today, executionStatus: '' });
+    if (state.executionStatus === 'done' || state.executionStatus === 'halted') return;
+    try {
+      const result = await deps.executeMomentum();
+      // Report changes only; pending/paused repeat every step while waiting.
+      const key = result.status === 'pending' || result.status === 'halted' ? `${result.status}:${result.symbol}` : result.status;
+      if (key !== state.executionStatus) {
+        deps.report(`momentum_execution_${result.status}`, result.status === 'done'
+          ? { submitted: String(result.submitted), filled: String(result.filled), failed: String(result.failed) }
+          : result.status === 'halted' ? { symbol: result.symbol, reason: result.reason }
+            : result.status === 'pending' ? { symbol: result.symbol } : undefined);
+      }
+      state.executionStatus = result.status === 'done' || result.status === 'halted' ? result.status : key;
+    } catch { deps.report('momentum_execution_failed'); }
   }
 
   async function newsStep(at: Date, today: string) {
@@ -140,6 +162,7 @@ export function createDailySchedule(deps: {
     await collectStep(at, today);
     await tickStep(at, today);
     await planStep(at, today);
+    await executionStep(at, today);
     await newsStep(at, today);
   };
 }

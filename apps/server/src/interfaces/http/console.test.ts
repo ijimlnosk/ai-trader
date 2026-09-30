@@ -7,7 +7,7 @@ import { registerConsoleRoutes } from './console.ts';
 const token = 'r'.repeat(32);
 const auth = { authorization: `Bearer ${token}` };
 const flags = { tradingMode: 'paper' as const, liveTradingEnabled: false, paperExecutionEnabled: false, paperLoopEnabled: false,
-  killSwitchEnabled: false, marketDataScheduleEnabled: true, paperLoopScheduleEnabled: false };
+  killSwitchEnabled: false, marketDataScheduleEnabled: true, paperLoopScheduleEnabled: false, momentumExecutionEnabled: false };
 const run = { id: 'r1', status: 'COMPLETE', reason: null, order: null, createdAt: 'c', updatedAt: 'u',
   input: { runKey: 'loop-1', sessionDate: '20260929', dataSha256: 'd'.repeat(64), dataRef: 'ref' },
   result: { evaluations: [{ signal: { symbol: '005930', reason: 'TREND_EXIT', proposal: { side: 'SELL', quantity: '1' } },

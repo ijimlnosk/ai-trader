@@ -11,6 +11,8 @@ export interface ConsoleStatusResponse {
   killSwitchEnabled: boolean;
   marketDataScheduleEnabled: boolean;
   paperLoopScheduleEnabled: boolean;
+  /** Daily momentum plan execution (paper), exclusive with the EMA loop schedule. */
+  momentumExecutionEnabled: boolean;
   calendar: { version: string; from: string; through: string };
 }
 

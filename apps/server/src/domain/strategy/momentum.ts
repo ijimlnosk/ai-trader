@@ -17,6 +17,8 @@ export type MomentumReason = 'MOMENTUM_ENTRY' | 'TREND_EXIT' | 'RANK_EXIT' | 'TR
 export interface MomentumEvaluation {
   strategyId: typeof MOMENTUM_IDENTITY.strategyId; version: typeof MOMENTUM_IDENTITY.version;
   symbol: string; evaluatedAt: string; source: string; reason: MomentumReason; proposal: TradeProposal | null;
+  /** Whole shares held when evaluated. */
+  heldQuantity: string;
   /** Ranking key for the session plan: higher first. */
   score: readonly number[];
   metrics: { momentum: number; trendMa: number; close: string; rank: number | null } | null;
@@ -62,12 +64,12 @@ export function evaluateMomentum(input: MomentumInput, config: Readonly<Momentum
     || (a.symbol < b.symbol ? -1 : 1));
   const rankOf = new Map(ranked.map((row, index) => [row.symbol, index]));
   return rows.map(({ symbol, bar, metrics }): MomentumEvaluation => {
-    const base = { ...MOMENTUM_IDENTITY, symbol, evaluatedAt: bar ? candleTime(bar.date, 'close') : '', source: input.source,
+    const held = input.holdings.get(symbol) ?? 0n;
+    const base = { ...MOMENTUM_IDENTITY, symbol, evaluatedAt: bar ? candleTime(bar.date, 'close') : '', source: input.source, heldQuantity: held.toString(),
       score: metrics ? [metrics.momentum] : [], metrics: metrics ? { momentum: metrics.momentum, trendMa: metrics.trendMa,
         close: metrics.close, rank: rankOf.get(symbol) ?? null } : null };
     const proposal = (side: 'BUY' | 'SELL', shares: bigint): TradeProposal => ({ symbol, side, quantity: shares.toString(),
       estimatedPrice: bar!.close, confidence: '1', createdAt: base.evaluatedAt });
-    const held = input.holdings.get(symbol) ?? 0n;
     if (!metrics || !bar) return { ...base, reason: 'INSUFFICIENT_HISTORY', proposal: null };
     const rank = rankOf.get(symbol);
     const price = ledgerAmount(bar.close);

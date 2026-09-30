@@ -1,5 +1,21 @@
-/** Persisted with the order request, including selected-symbol inputs for replay. */
-export interface StrategyProvenance {
+/** Persisted with the order request. EMA includes selected-symbol candles; momentum references its plan run. */
+export type StrategyProvenance = EmaCrossProvenance | MomentumProvenance;
+
+export interface MomentumProvenance {
+  strategyId: 'momentum-rotation';
+  version: '1';
+  configId: string;
+  source: string;
+  /** Digest of the universe dataset the plan evaluated. */
+  dataSha256: string;
+  planRunKey: string;
+  evaluatedAt: string;
+  reason: string;
+  account: { cash: string; totalEquity: string; heldQuantity: string };
+  metrics: { momentum: number; trendMa: number; close: string; rank: number | null };
+}
+
+export interface EmaCrossProvenance {
   strategyId: 'ema-cross';
   version: '1';
   configId: string;

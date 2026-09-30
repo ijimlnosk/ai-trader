@@ -32,7 +32,7 @@ export function StatusCard() {
       {s && h && <>
         <div className={`headline headline-${h.tone}`}><strong>{h.title}</strong><span>{h.detail}</span></div>
         <div className="status-grid">
-          {item('서버 자동매매 허용', ...onOff(s.paperLoopScheduleEnabled))}
+          {item('자동매매 전략', s.momentumExecutionEnabled ? '모멘텀 교체' : s.paperLoopScheduleEnabled ? '삼성전자 EMA' : '없음', s.momentumExecutionEnabled || s.paperLoopScheduleEnabled ? 'warn' : 'neutral')}
           {item('모의 주문 실행', ...onOff(s.paperExecutionEnabled))}
           {item('매매 루프', ...onOff(s.paperLoopEnabled))}
           {item('일봉 자동 수집', ...onOff(s.marketDataScheduleEnabled, false))}

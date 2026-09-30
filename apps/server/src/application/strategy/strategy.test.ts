@@ -22,8 +22,9 @@ it('passes an explicit signal through existing risk/execution with durable prove
   const stored = [...s.rows.values()][0]!;
   expect(stored.audit?.decision.approved).toBe(true);
   expect(stored.request.strategy).toMatchObject({ version: '1', reason: 'BULLISH_CROSS', dataSha256: first.dataSha256 });
-  expect(stored.request.strategy?.indicators.trend).toBe('up');
   const provenance = stored.request.strategy!;
+  if (provenance.strategyId !== 'ema-cross') throw new Error('expected EMA provenance');
+  expect(provenance.indicators.trend).toBe('up');
   const reconstructed = evaluateStrategy(stored.symbol, provenance.candles, provenance.account, provenance.source);
   expect(reconstructed.proposal?.quantity).toBe(stored.quantity);
   expect(reconstructed.indicators).toEqual(provenance.indicators);

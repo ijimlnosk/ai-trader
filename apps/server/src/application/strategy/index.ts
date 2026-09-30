@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { nextKrxSession } from '../../domain/scheduler/krxCalendar.ts';
 import { seoulOrderDate } from '../../domain/orders.ts';
 import { DEFAULT_STRATEGY_CONFIG } from '../../domain/strategy/config.ts';
-import { evaluateStrategy, type StrategyEvaluation } from '../../domain/strategy/evaluate.ts';
+import { evaluateStrategy } from '../../domain/strategy/evaluate.ts';
 import { candleTime, validateDataset, type MarketDataset } from '../../domain/strategy/marketData.ts';
 import { DEFAULT_RISK_POLICY, evaluateRisk } from '../../domain/risk/index.ts';
 import { orderResponse, type OrderServices } from '../orders/index.ts';
@@ -12,7 +12,7 @@ import { riskPortfolioSchema } from '../paperRiskContext.ts';
 import { OrderError } from '../orders/ports.ts';
 
 /** Same strategy/symbol/bar cannot acquire a second key by changing configuration or side. */
-export function strategyOrderKey<T extends Pick<StrategyEvaluation, 'strategyId' | 'version' | 'symbol' | 'evaluatedAt'>>(signal: T): string {
+export function strategyOrderKey<T extends { strategyId: string; version: string; symbol: string; evaluatedAt: string }>(signal: T): string {
   const hex = createHash('sha256').update(JSON.stringify([signal.strategyId, signal.version, signal.symbol, signal.evaluatedAt])).digest('hex');
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-8${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }

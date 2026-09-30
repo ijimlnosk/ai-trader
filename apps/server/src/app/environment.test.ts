@@ -53,3 +53,13 @@ it('console read token must be strong and distinct from the order token', () => 
   expect(parseEnvironment({ ...base, CONSOLE_READ_TOKEN: 'r'.repeat(32), ORDER_API_TOKEN: 'x'.repeat(32) }))
     .toMatchObject({ CONSOLE_READ_TOKEN: 'r'.repeat(32) });
 });
+
+it('momentum execution needs paper execution and the plan schedule and excludes the EMA loop schedule', () => {
+  const on = { ...base, ORDER_API_TOKEN: 'x'.repeat(32), MOMENTUM_EXECUTION_ENABLED: 'true' };
+  expect(parseEnvironment(base).MOMENTUM_EXECUTION_ENABLED).toBe(false);
+  expect(() => parseEnvironment(on)).toThrow('MOMENTUM_EXECUTION_ENABLED');
+  expect(() => parseEnvironment({ ...on, PAPER_ORDER_EXECUTION_ENABLED: 'true' })).toThrow('MOMENTUM_EXECUTION_ENABLED');
+  const valid = { ...on, PAPER_ORDER_EXECUTION_ENABLED: 'true', UNIVERSE_PLAN_SCHEDULE_ENABLED: 'true' };
+  expect(parseEnvironment(valid)).toMatchObject({ MOMENTUM_EXECUTION_ENABLED: true, LIVE_TRADING_ENABLED: false });
+  expect(() => parseEnvironment({ ...valid, PAPER_LOOP_ENABLED: 'true', PAPER_LOOP_SCHEDULE_ENABLED: 'true' })).toThrow('MOMENTUM_EXECUTION_ENABLED');
+});
