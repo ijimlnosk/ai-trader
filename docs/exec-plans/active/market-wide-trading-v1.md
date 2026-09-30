@@ -1,0 +1,72 @@
+# Goal
+
+Move from one symbol (`005930`) to autonomous paper trading across a reviewed universe: scan every
+listed candidate daily, buy the strongest deterministic signals, sell holdings whose signals turn,
+and add a news/disclosure analysis layer that can only make trading more conservative.
+
+# Constraints
+
+- Paper only. Risk engine stays authoritative and unchanged in this plan: at most 5 open positions,
+  10% position exposure, 2% daily loss, 3-loss halt, kill switch. AI never sizes, forces or
+  approves a trade; AI failure means no new BUY (NO_TRADE), never a forced SELL.
+- One unresolved order per account remains (existing reservation). Orders in one tick run
+  sequentially: submit, reconcile to a terminal state, then the next.
+- Only information available at decision time; archived inputs for every decision (bars,
+  news items with timestamps, AI prompts/outputs, risk context). No look-ahead in backtests.
+- Owner web pause (decision 0010) and environment master switches apply to everything.
+
+# Current State (verified 2026-09-30)
+
+- Once per reviewed session at 09:05–15:00 KST the loop evaluates `005930` only, from a snapshot
+  re-confirmed that morning; tracking polls every 30 s while an order is open. 9/30: `NO_ENTRY`.
+- KIS paper keys: daily bars for any symbol work (`FHKST03010100`, e.g. 000660). Volume/price
+  ranking (`FHPST01710000`) and news titles (`FHKST01011800`) return `provider_unavailable`, so
+  market-wide ranking and news cannot come from the paper KIS account.
+- Paced KIS client: 1.5 s minimum between requests (≈ 75 s for 50 symbols per collection).
+- Strategy/risk/backtest already accept multi-series datasets; loop, preparer and collector are
+  hard-wired to `005930`; loop claims assume one symbol per session.
+
+# Plan
+
+Phase C1 — universe and data (order-free)
+- [ ] Reviewed universe file (versioned, sourced), initially ~50 liquid KOSPI/KOSDAQ names.
+- [ ] Collect/confirm daily snapshots for every universe symbol plus current holdings; one
+      calendar-aligned dataset per session; partial failures skip only that symbol and are shown.
+- [ ] Console: universe coverage and data freshness.
+
+Phase C2 — multi-symbol decisions (paper)
+- [ ] Per-session plan: evaluate all symbols; SELL candidates for held symbols first, then BUY
+      candidates ranked by a deterministic score; each through the unchanged risk engine.
+- [ ] Loop run per (session, symbol) with the existing order-key/claim guarantees; sequential
+      execution; stop the session on any HALTED/unknown state.
+- [ ] Backtest the universe strategy (next-open fills, costs) before enabling; record results.
+- [ ] Console: today's plan (scanned, signals, approved, skipped with reasons, orders).
+
+Phase C3 — news and disclosures (analysis only)
+- [ ] Sources behind adapters: DART OpenAPI disclosures; a news search API (e.g. Naver). Keys
+      supplied by the owner in the server `.env`; none in chat or the repository.
+- [ ] AI provider abstraction (Claude) producing a validated structured assessment per symbol
+      (event flags, sentiment, confidence, cited items). Timeouts and malformed output → no
+      assessment → no new BUY for that symbol.
+- [ ] Policy: assessments may veto or down-rank BUYs and flag held symbols for review; they may
+      not create orders or change risk limits. Archive every prompt/output with the run.
+- [ ] Offline evaluation on archived history before it affects paper orders.
+
+# Decisions pending (owner)
+
+- Universe: size and membership (recommend ~50 by liquidity, reviewed monthly).
+- External keys: DART, news API, Anthropic — owner registers and places them in server `.env`.
+- Whether AI may ever up-rank (not only veto) — recommend veto-only initially.
+
+# Validation
+
+Unit tests per phase; disposable-DB tests; order-free deployment of C1 and a dry-run week of C2
+plans before enabling orders; evidence documents per enablement.
+
+# Progress
+
+2026-09-30: plan drafted; KIS paper capability probe recorded above.
+
+# Remaining Work
+
+All steps.

@@ -99,3 +99,16 @@ The 9/29 bar kept changing overnight: close 273,000 (18:30), 273,500 (18:45 manu
 series; unverified. Only the 08:00–08:50 KST morning re-collection is trusted for trading.
 
 Rollback: set the three switches back to false (or restore `env.before`) and recreate `server`.
+
+## 2026-09-30 session and owner control deployment
+
+- 08:00 KST morning re-collection saved a revised 9/29 bar (close 272,500; earlier pulls 273,000 /
+  273,500 / 275,000). 09:05 tick `loop-20260930-96c1f843fb27` completed with `NO_ENTRY`
+  (EMA20 264,942 < EMA60 270,141, trend mixed); no order. No warnings or errors in logs.
+- The agent's local 08:20/09:25/15:35 background checks did not run (the local session stopped);
+  results were read at 10:23 KST instead.
+- 10:40 KST: commit `1acda99` deployed (migration 0008). Evidence:
+  `/home/jinsol/ai-trader-backups/controls-deploy-20260930` (backups, DB dump, read-only ledger
+  snapshots before/after equal). Environment switches unchanged (all on, live off). As designed the
+  schedule now reports `paper_loop_paused` until the owner resumes in the console. Anonymous
+  control GET/POST 401, cross-origin POST 403, direct API POST 401.
