@@ -66,6 +66,13 @@ Phase C3 — news and disclosures (analysis only)
 Unit tests per phase; disposable-DB tests; order-free deployment of C1 and a dry-run week of C2
 plans before enabling orders; evidence documents per enablement.
 
+Phase C2b — strategy
+- [x] Walk-forward research; momentum rotation selected (decision 0013); corporate-action guard.
+- [x] Consecutive-loss cooldown (decision 0012).
+- [x] Momentum rotation implemented with trims; official backtest; daily `plan-momentum-*` runs next to EMA plans.
+- [ ] Two weeks of order-free momentum plans reviewed; then an owner-approved change to allow
+      momentum provenance and sequential multi-order execution.
+
 # Progress
 
 2026-09-30: plan drafted; KIS paper capability probe recorded above.

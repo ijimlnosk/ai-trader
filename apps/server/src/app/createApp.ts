@@ -39,6 +39,7 @@ import { createNewsQuery } from '../application/news/query.ts';
 import { UNIVERSE, universeSymbols } from '../domain/market/universe.ts';
 import { createUniverseDatasetBuilder } from '../application/marketData/universeDataset.ts';
 import { createSessionPlanRunner } from '../application/strategy/sessionPlan.ts';
+import { createMomentumPlanRunner } from '../application/strategy/momentumPlan.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -103,11 +104,14 @@ export function createApp(
   registerUserConsole(app, { news, controls, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
     portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
     health: createHealthCheck(database, new PaperBroker()) });
-  const planRunner = snapshots && dependencies.strategyRuns ? createSessionPlanRunner({ scheduler: strategyScheduler,
-    build: createUniverseDatasetBuilder({ snapshots, symbols: universeSymbols(), label: UNIVERSE.version }) }) : undefined;
+  const universeDataset = snapshots ? createUniverseDatasetBuilder({ snapshots, symbols: universeSymbols(), label: UNIVERSE.version }) : undefined;
+  const planRunners = universeDataset && dependencies.strategyRuns ? [
+    createMomentumPlanRunner({ build: universeDataset, account: dependencies.accountBroker, risk: dependencies.riskContextProvider, runs: dependencies.strategyRuns }),
+    createSessionPlanRunner({ scheduler: strategyScheduler, build: universeDataset }),
+  ] : undefined;
   if (environment.MARKET_DATA_SCHEDULE_ENABLED || environment.PAPER_LOOP_SCHEDULE_ENABLED || environment.NEWS_SCHEDULE_ENABLED
     || environment.UNIVERSE_PLAN_SCHEDULE_ENABLED) {
-    if (environment.UNIVERSE_PLAN_SCHEDULE_ENABLED && !planRunner) throw new Error('Plan schedule dependencies required');
+    if (environment.UNIVERSE_PLAN_SCHEDULE_ENABLED && !planRunners) throw new Error('Plan schedule dependencies required');
     if (environment.NEWS_SCHEDULE_ENABLED && !collectNews) throw new Error('News schedule dependencies required');
     if ((environment.MARKET_DATA_SCHEDULE_ENABLED && !collect) || (environment.PAPER_LOOP_SCHEDULE_ENABLED && (!prepare || !tick || !controls))) {
       throw new Error('Daily schedule dependencies required');
@@ -116,7 +120,7 @@ export function createApp(
     const step = createDailySchedule({ report,
       collect: environment.MARKET_DATA_SCHEDULE_ENABLED ? collect : undefined, symbols: universeSymbols(),
       news: environment.NEWS_SCHEDULE_ENABLED ? collectNews : undefined,
-      plan: environment.UNIVERSE_PLAN_SCHEDULE_ENABLED ? planRunner : undefined,
+      plans: environment.UNIVERSE_PLAN_SCHEDULE_ENABLED ? planRunners : undefined,
       loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick && controls ? { prepare, tick, isEnabled: controls.isAutoTradingEnabled } : undefined });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });

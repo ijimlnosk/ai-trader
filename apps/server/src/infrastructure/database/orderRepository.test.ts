@@ -121,8 +121,10 @@ describe.skipIf(!testUrl)('PostgreSQL order persistence and migration', () => {
     await runs.put({ runKey: 'paper-dry-run-x', sessionDate: '20260929', createdAt: '2026-09-29T00:10:00.000Z', dataSha256: 'a'.repeat(64), result });
     await runs.put({ runKey: 'plan-20260929-aaa', sessionDate: '20260929', createdAt: '2026-09-29T00:05:00.000Z', dataSha256: 'b'.repeat(64), result });
     await runs.put({ runKey: 'plan-20260930-bbb', sessionDate: '20260930', createdAt: '2026-09-30T00:05:00.000Z', dataSha256: 'c'.repeat(64), result });
-    expect((await createConsoleReadRepository(database.db, account).latestPlanRun())?.runKey).toBe('plan-20260930-bbb');
-    expect(await createConsoleReadRepository(database.db, randomUUID()).latestPlanRun()).toBeNull();
+    await runs.put({ runKey: 'plan-momentum-20260930-ccc', sessionDate: '20260930', createdAt: '2026-09-30T00:06:00.000Z', dataSha256: 'd'.repeat(64), result });
+    expect((await createConsoleReadRepository(database.db, account).latestPlanRun('plan-2'))?.runKey).toBe('plan-20260930-bbb');
+    expect((await createConsoleReadRepository(database.db, account).latestPlanRun('plan-momentum-'))?.runKey).toBe('plan-momentum-20260930-ccc');
+    expect(await createConsoleReadRepository(database.db, randomUUID()).latestPlanRun('plan-2')).toBeNull();
   });
   it('preserves existing rows after expansion', async () => {
     const legacy = await database.db.select().from(orders).where(isNull(orders.executionAccount));

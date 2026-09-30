@@ -1,11 +1,14 @@
 import { DEFAULT_RISK_POLICY } from '../../domain/risk/index.ts';
 import { ledgerAmount, ledgerDecimal } from '../../domain/tradeLedger.ts';
 import { DEFAULT_STRATEGY_CONFIG, validateStrategyConfig, type StrategyConfig } from '../../domain/strategy/config.ts';
-import { evaluateStrategy, type StrategyEvaluation } from '../../domain/strategy/evaluate.ts';
+import { evaluateStrategy } from '../../domain/strategy/evaluate.ts';
+import { evaluateMomentum, isFirstSessionOfWeek, wholeShares } from '../../domain/strategy/momentum.ts';
 import { planSession } from '../../domain/strategy/plan.ts';
 import { validateDataset, type MarketDataset } from '../../domain/strategy/marketData.ts';
 import { accountSnapshot, type SimulationAccount } from './account.ts';
-import { executeSimulation, validateCosts, type SimulationCosts, type SimulatedExecution } from './execution.ts';
+import { executeSimulation, validateCosts, type BacktestSignal, type SimulationCosts, type SimulatedExecution } from './execution.ts';
+
+export type BacktestStrategy = 'ema-cross' | 'momentum-rotation';
 export interface BacktestSettings {
   initialCash: string; costs: SimulationCosts; strategy: StrategyConfig; killSwitchEnabled: boolean;
 }
@@ -17,7 +20,7 @@ export function validateBacktestSettings(settings: BacktestSettings): void {
   validateStrategyConfig(settings.strategy); validateCosts(settings.costs);
   if (ledgerAmount(settings.initialCash) <= 0n || typeof settings.killSwitchEnabled !== 'boolean') throw new Error('Invalid backtest account');
 }
-export function runBacktest(data: MarketDataset, settings: BacktestSettings = DEFAULT_BACKTEST_SETTINGS) {
+export function runBacktest(data: MarketDataset, settings: BacktestSettings = DEFAULT_BACKTEST_SETTINGS, strategy: BacktestStrategy = 'ema-cross') {
   validateDataset(data); validateBacktestSettings(settings);
   const initial = ledgerAmount(settings.initialCash);
   const account: SimulationAccount = { cash: initial, executions: [], marks: new Map() };
@@ -25,7 +28,7 @@ export function runBacktest(data: MarketDataset, settings: BacktestSettings = DE
   const trades: SimulatedExecution[] = [];
   const evaluations = [];
   const equityCurve: { date: string; cash: string; equity: string }[] = [];
-  let pending: StrategyEvaluation[] = [];
+  let pending: (BacktestSignal & { symbol: string })[] = [];
   let peak = initial; let maxDrawdown = 0;
   // The dataset's own sessions stand in for the exchange calendar when expiring loss streaks.
   const position = new Map(data.sessions.map((session, i) => [session, i]));
@@ -41,11 +44,13 @@ export function runBacktest(data: MarketDataset, settings: BacktestSettings = DE
     }
     for (const series of universe) account.marks.set(series.symbol, series.candles[index]!.close);
     const snapshot = accountSnapshot(account, date, settings.killSwitchEnabled, elapsed);
-    const signals = universe.map((series) => {
-      const heldQuantity = snapshot.ledger.positions.find((p) => p.symbol === series.symbol)?.quantity ?? '0';
-      return evaluateStrategy(series.symbol, series.candles.slice(0, index + 1),
-        { ...snapshot.context, heldQuantity }, data.source, settings.strategy);
-    });
+    const held = (symbol: string) => snapshot.ledger.positions.find((p) => p.symbol === symbol)?.quantity ?? '0';
+    const signals = strategy === 'momentum-rotation'
+      ? evaluateMomentum({ series: universe.map((series) => ({ symbol: series.symbol, candles: series.candles.slice(0, index + 1) })),
+        holdings: new Map(universe.map((series) => [series.symbol, wholeShares(held(series.symbol))])),
+        account: snapshot.context, source: data.source, rebalance: isFirstSessionOfWeek(data.sessions[index - 1], date) })
+      : universe.map((series) => evaluateStrategy(series.symbol, series.candles.slice(0, index + 1),
+        { ...snapshot.context, heldQuantity: held(series.symbol) }, data.source, settings.strategy));
     // Same ordering and sequential risk context as the live session plan (SELLs first, ranked BUYs).
     const plan = planSession(signals, snapshot.context);
     for (const signal of signals) {

@@ -10,7 +10,11 @@ const settingsSchema = z.strictObject({ initialCash: z.string(), killSwitchEnabl
   strategy: z.strictObject({ minPrice: z.string(), minAverageTurnover: z.string(), minRsi: z.number(), maxRsi: z.number(),
     minVolumeRatio: z.number(), riskBudgetBps: z.number(), maxAllocationBps: z.number(), atrMultiple: z.number() }) });
 async function main() {
-  const [mode = '--sample', path, settingsPath, ...extra] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const strategyFlag = args.find((arg) => arg.startsWith('--strategy='));
+  const strategy = strategyFlag === '--strategy=momentum-rotation' ? 'momentum-rotation' : 'ema-cross';
+  if (strategyFlag && strategy === 'ema-cross' && strategyFlag !== '--strategy=ema-cross') throw new Error('Unknown strategy');
+  const [mode = '--sample', path, settingsPath, ...extra] = args.filter((arg) => arg !== strategyFlag);
   if (!['--sample', '--file', '--evaluate'].includes(mode) || extra.length || (mode !== '--sample' && !path) || (mode === '--sample' && path !== undefined)) {
     throw new Error('Usage: backtest --sample | --file DATA.json [SETTINGS.json] | --evaluate DATA.json [SETTINGS.json]');
   }
@@ -26,7 +30,7 @@ async function main() {
       return { signal, context, decision: signal.proposal ? evaluateRisk(signal.proposal, context) : null };
     });
     process.stdout.write(JSON.stringify({ mode: 'hypothetical-flat-account', evaluations }, null, 2) + '\n');
-  } else process.stdout.write(JSON.stringify(runBacktest(data, settings), null, 2) + '\n');
+  } else process.stdout.write(JSON.stringify(runBacktest(data, settings, strategy), null, 2) + '\n');
 }
 main().catch((error: unknown) => {
   process.stderr.write(`${error instanceof Error ? error.message : 'Backtest failed'}\n`);

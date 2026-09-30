@@ -12,18 +12,20 @@ const run = { runKey: 'plan-20260930-abc', sessionDate: '20260930', createdAt: '
     .map((s) => ({ signal: s, context, policy: {}, decision: null, orderKey: 'k' })) } } as unknown as StrategyRunRecord;
 const flags = { tradingMode: 'paper' as const, liveTradingEnabled: false, paperExecutionEnabled: true, paperLoopEnabled: true,
   killSwitchEnabled: false, marketDataScheduleEnabled: true, paperLoopScheduleEnabled: true };
-const repository = (latest: StrategyRunRecord | null) => ({ listOrders: async () => [], listLoopRuns: async () => [], listSnapshots: async () => [], latestPlanRun: async () => latest });
+const repository = (latest: StrategyRunRecord | null) => ({ listOrders: async () => [], listLoopRuns: async () => [], listSnapshots: async () => [],
+  latestPlanRun: async (prefix: string) => (latest && latest.runKey.startsWith(prefix) ? latest : null) });
 
 it('derives the ranked plan with names and risk results from the stored run', async () => {
   const response = await createConsoleQueries({ repository: repository(run), flags }).plan();
-  expect(response.plan).toMatchObject({ runKey: 'plan-20260930-abc', sessionDate: '20260930', scanned: 3, universeSize: 54,
+  expect(response.plans).toHaveLength(1);
+  expect(response.plans[0]).toMatchObject({ strategyId: 'ema-cross', runKey: 'plan-20260930-abc', sessionDate: '20260930', scanned: 3, universeSize: 54,
     reasons: { BULLISH_CROSS: 2, NO_ENTRY: 1 } });
-  expect(response.plan!.items).toEqual([
+  expect(response.plans[0]!.items).toEqual([
     { rank: 1, symbol: '035420', name: 'NAVER', side: 'BUY', quantity: '2', estimatedPrice: '100000', reason: 'BULLISH_CROSS', approved: true, rejections: [] },
     { rank: 2, symbol: '000660', name: 'SK하이닉스', side: 'BUY', quantity: '2', estimatedPrice: '100000', reason: 'BULLISH_CROSS', approved: true, rejections: [] },
   ]);
 });
 
-it('returns null without a plan run', async () => {
-  expect(await createConsoleQueries({ repository: repository(null), flags }).plan()).toEqual({ plan: null });
+it('returns no plans without plan runs', async () => {
+  expect(await createConsoleQueries({ repository: repository(null), flags }).plan()).toEqual({ plans: [] });
 });

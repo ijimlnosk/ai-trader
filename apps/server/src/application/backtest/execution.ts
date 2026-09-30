@@ -1,7 +1,8 @@
 import { DEFAULT_RISK_POLICY, evaluateRisk, type TradeProposal, type RiskDecision, type RiskContext } from '../../domain/risk/index.ts';
 import { ledgerAmount, ledgerDecimal, type SessionsElapsed } from '../../domain/tradeLedger.ts';
 import { candleTime, type DailyCandle } from '../../domain/strategy/marketData.ts';
-import type { StrategyEvaluation } from '../../domain/strategy/evaluate.ts';
+/** Minimal signal shape shared by every strategy's evaluations. */
+export interface BacktestSignal { version: string; symbol: string; evaluatedAt: string; proposal: TradeProposal | null }
 import { accountSnapshot, type SimulationAccount } from './account.ts';
 export interface SimulationCosts { commissionBps: number; sellTaxBps: number; slippageBps: number }
 export function validateCosts(costs: SimulationCosts): void {
@@ -9,13 +10,13 @@ export function validateCosts(costs: SimulationCosts): void {
     || costs.commissionBps + costs.sellTaxBps >= 10000) throw new Error('Invalid simulation costs');
 }
 export interface SimulatedExecution {
-  signal: StrategyEvaluation; proposal: TradeProposal; context: RiskContext;
+  signal: BacktestSignal; proposal: TradeProposal; context: RiskContext;
   policy: typeof DEFAULT_RISK_POLICY; decision: RiskDecision;
   status: 'FILLED' | 'REJECTED'; reason: string | null;
   grossAmount: string; fees: string; settlementAmount: string; realizedPnl: string | null;
 }
 const ceilBps = (value: bigint, bps: number) => (value * BigInt(bps) + 9999n) / 10000n;
-export function executeSimulation(account: SimulationAccount, signal: StrategyEvaluation, bar: DailyCandle,
+export function executeSimulation(account: SimulationAccount, signal: BacktestSignal, bar: DailyCandle,
   costs: SimulationCosts, killSwitchEnabled: boolean, sessionsElapsed?: SessionsElapsed): SimulatedExecution {
   if (!signal.proposal) throw new Error('Missing trade proposal');
   const original = signal.proposal;

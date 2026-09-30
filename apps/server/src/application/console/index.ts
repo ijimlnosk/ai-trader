@@ -1,4 +1,4 @@
-import type { ConsoleLoopRun, ConsolePlanResponse, ConsoleSnapshot, ConsoleStatusResponse, OrderResponse } from '@ai-trader/contracts';
+import type { ConsoleLoopRun, ConsolePlan, ConsolePlanResponse, ConsoleSnapshot, ConsoleStatusResponse, OrderResponse } from '@ai-trader/contracts';
 import { planSession } from '../../domain/strategy/plan.ts';
 import { UNIVERSE, universeName } from '../../domain/market/universe.ts';
 import type { StrategyRunRecord } from '../scheduler/index.ts';
@@ -9,14 +9,16 @@ import { orderResponse } from '../orders/index.ts';
 import type { PaperLoopRun } from '../paperLoop/ports.ts';
 
 export const CONSOLE_MAX_LIMIT = 100;
+/** Primary strategy first. EMA plans use `plan-<date>`, momentum plans `plan-momentum-<date>`. */
+const PLAN_STRATEGIES = [['momentum-rotation', '모멘텀 교체', 'plan-momentum-'], ['ema-cross', 'EMA 교차 (기존)', 'plan-2']] as const;
 
 /** Newest-first, bounded reads for the operator console; account scope belongs to the adapter. */
 export interface ConsoleReadRepository {
   listOrders(limit: number): Promise<StoredOrder[]>;
   listLoopRuns(limit: number): Promise<PaperLoopRun[]>;
   listSnapshots(limit: number): Promise<DailySnapshot[]>;
-  /** Most recent order-free universe plan run (run key prefix `plan-`). */
-  latestPlanRun(): Promise<StrategyRunRecord | null>;
+  /** Most recent order-free plan run whose key starts with the given prefix. */
+  latestPlanRun(prefix: string): Promise<StrategyRunRecord | null>;
 }
 
 export type ConsoleFlags = Omit<ConsoleStatusResponse, 'checkedAt' | 'calendar'>;
@@ -46,14 +48,18 @@ export function createConsoleQueries(deps: { repository: ConsoleReadRepository; 
     loopRuns: async (limit: number) => (await deps.repository.listLoopRuns(limit)).map(loopRun),
     snapshots: async (limit: number) => (await deps.repository.listSnapshots(limit)).map(snapshot),
     plan: async (): Promise<ConsolePlanResponse> => {
-      const run = await deps.repository.latestPlanRun();
-      const evaluations = run?.result.evaluations ?? [];
-      if (!run || evaluations.length === 0) return { plan: null };
-      const plan = planSession(evaluations.map((evaluation) => evaluation.signal), evaluations[0]!.context);
-      return { plan: { runKey: run.runKey, sessionDate: run.sessionDate, createdAt: run.createdAt, scanned: plan.scanned,
+      const plans: ConsolePlan[] = [];
+      for (const [strategyId, label, prefix] of PLAN_STRATEGIES) {
+        const run = await deps.repository.latestPlanRun(prefix);
+        const evaluations = run?.result.evaluations ?? [];
+        if (!run || evaluations.length === 0) continue;
+        const plan = planSession(evaluations.map((evaluation) => evaluation.signal), evaluations[0]!.context);
+        plans.push({ strategyId, label, runKey: run.runKey, sessionDate: run.sessionDate, createdAt: run.createdAt, scanned: plan.scanned,
         universeSize: UNIVERSE.symbols.length, reasons: plan.reasons, items: plan.items.map((item) => ({ rank: item.rank,
           symbol: item.symbol, name: universeName(item.symbol) ?? item.symbol, side: item.side, quantity: item.quantity,
-          estimatedPrice: item.estimatedPrice, reason: item.reason, approved: item.decision.approved, rejections: [...item.decision.reasons] })) } };
+          estimatedPrice: item.estimatedPrice, reason: item.reason, approved: item.decision.approved, rejections: [...item.decision.reasons] })) });
+      }
+      return { plans };
     },
   };
 }

@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto';
 import type { MarketDataset } from '../../domain/strategy/marketData.ts';
 import { explicitSessionCalendar, isSeoulTradingSession } from '../../domain/scheduler/session.ts';
 import type { StrategyService } from '../strategy/index.ts';
+import type { RiskContext, RiskDecision } from '../../domain/risk/index.ts';
+import type { PlanCandidate } from '../../domain/strategy/plan.ts';
 import { OrderError } from '../orders/ports.ts';
 
 export interface StrategyRunRecord {
@@ -9,7 +11,14 @@ export interface StrategyRunRecord {
   sessionDate: string;
   createdAt: string;
   dataSha256: string;
-  result: Awaited<ReturnType<StrategyService>>;
+  result: StrategyRunResult;
+}
+
+/** Stored result of any strategy's order-free run; the EMA service result is one instance. */
+export interface StrategyRunResult {
+  mode: 'paper'; dataSha256: string; configuration: unknown;
+  evaluations: readonly { signal: PlanCandidate & { strategyId: string; symbol: string }; context: RiskContext; decision: RiskDecision | null }[];
+  order: unknown;
 }
 
 export interface StrategyRunRepository {

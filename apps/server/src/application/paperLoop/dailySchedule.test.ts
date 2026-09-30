@@ -108,7 +108,7 @@ describe('daily schedule universe plan', () => {
     const report = vi.fn();
     const plan = vi.fn(async () => ({ status: 'saved' as const, runKey: 'plan-20260930-x', scanned: 54, excluded: 0 }));
     const time = clock('2026-09-30T00:04:00Z');
-    const step = createDailySchedule({ plan, report, now: time.now });
+    const step = createDailySchedule({ plans: [plan], report, now: time.now });
     await step();
     expect(plan).not.toHaveBeenCalled();
     time.state.now = new Date('2026-09-30T00:05:00Z');
@@ -120,10 +120,13 @@ describe('daily schedule universe plan', () => {
   it('reports skips and failures without retrying the same day', async () => {
     const report = vi.fn();
     const plan = vi.fn().mockRejectedValueOnce(new Error('kis'));
-    const step = createDailySchedule({ plan, report, now: () => new Date('2026-09-30T01:00:00Z') });
+    const other = vi.fn(async () => ({ status: 'skipped' as const, reason: 'no_confirmed_data' }));
+    const step = createDailySchedule({ plans: [plan, other], report, now: () => new Date('2026-09-30T01:00:00Z') });
     await step(); await step();
     expect(plan).toHaveBeenCalledTimes(1);
     expect(report).toHaveBeenCalledWith('session_plan_failed');
+    expect(other).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith('session_plan_skipped', { reason: 'no_confirmed_data' });
   });
 });
 

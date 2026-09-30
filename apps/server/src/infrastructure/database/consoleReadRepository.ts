@@ -22,9 +22,9 @@ export function createConsoleReadRepository(db: Database, executionAccount: stri
         .orderBy(desc(paperLoopRuns.createdAt)).limit(limit);
       return rows.map(mapRun);
     },
-    async latestPlanRun() {
+    async latestPlanRun(prefix) {
       const [row] = await db.select().from(strategyRuns)
-        .where(and(eq(strategyRuns.executionAccount, executionAccount), like(strategyRuns.runKey, 'plan-%')))
+        .where(and(eq(strategyRuns.executionAccount, executionAccount), like(strategyRuns.runKey, `${prefix.replaceAll('%', '').replaceAll('_', '\\_')}%`)))
         .orderBy(desc(strategyRuns.createdAt)).limit(1);
       return row ? { runKey: row.runKey, sessionDate: row.sessionDate, createdAt: row.createdAt.toISOString(),
         dataSha256: row.dataSha256, result: row.result as StrategyRunRecord['result'] } : null;

@@ -36,7 +36,7 @@ export function createDailySchedule(deps: {
   /** Once per session day, after the morning confirmation window. */
   news?: NewsCollector | undefined;
   /** Order-free universe evaluation, once per session day inside the tick window; ignores the pause. */
-  plan?: SessionPlanRunner | undefined;
+  plans?: readonly SessionPlanRunner[] | undefined;
   /** isEnabled is the owner's pause/resume control; failures to read it count as paused. */
   loop?: { prepare: PaperLoopPreparer; tick: PaperLoop; isEnabled: () => Promise<boolean> } | undefined;
   report: ScheduleReport; now?: () => Date;
@@ -71,14 +71,17 @@ export function createDailySchedule(deps: {
 
   async function planStep(at: Date, today: string) {
     const minute = seoulMinute(at);
-    if (!deps.plan || state.planDate === today || krxSessionStatus(today) !== 'session'
+    if (!deps.plans?.length || state.planDate === today || krxSessionStatus(today) !== 'session'
       || minute < TICK_START_MINUTE || minute >= TICK_END_MINUTE) return;
     state.planDate = today;
-    try {
-      const result = await deps.plan();
-      deps.report(result.status === 'saved' ? 'session_plan_saved' : 'session_plan_skipped', result.status === 'saved'
-        ? { runKey: result.runKey, scanned: String(result.scanned), excluded: String(result.excluded) } : { reason: result.reason });
-    } catch { deps.report('session_plan_failed'); }
+    // Independent runners: one failing does not stop the others.
+    for (const plan of deps.plans) {
+      try {
+        const result = await plan();
+        deps.report(result.status === 'saved' ? 'session_plan_saved' : 'session_plan_skipped', result.status === 'saved'
+          ? { runKey: result.runKey, scanned: String(result.scanned), excluded: String(result.excluded) } : { reason: result.reason });
+      } catch { deps.report('session_plan_failed'); }
+    }
   }
 
   async function newsStep(at: Date, today: string) {

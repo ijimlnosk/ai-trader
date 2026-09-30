@@ -63,12 +63,12 @@ export interface ConsoleNewsResponse {
   usage: { provider: string; daily: number; monthly: number; dailyCap: number; monthlyCap: number } | null;
 }
 
-/** Latest order-free universe plan. Quantities are shares; prices KRW; decisions from the risk engine. */
-export interface ConsolePlanResponse {
-  plan: {
-    runKey: string; sessionDate: string; createdAt: string; scanned: number; universeSize: number;
-    reasons: Record<string, number>;
-    items: { rank: number; symbol: string; name: string; side: 'BUY' | 'SELL'; quantity: string; estimatedPrice: string;
-      reason: string; approved: boolean; rejections: string[] }[];
-  } | null;
+/** One strategy's latest order-free universe plan. Quantities are shares; prices KRW. */
+export interface ConsolePlan {
+  strategyId: string; label: string; runKey: string; sessionDate: string; createdAt: string; scanned: number; universeSize: number;
+  reasons: Record<string, number>;
+  items: { rank: number; symbol: string; name: string; side: 'BUY' | 'SELL'; quantity: string; estimatedPrice: string;
+    reason: string; approved: boolean; rejections: string[] }[];
 }
+/** Latest plan per strategy, primary strategy first. */
+export interface ConsolePlanResponse { plans: ConsolePlan[] }

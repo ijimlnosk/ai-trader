@@ -2,7 +2,14 @@ import { DECIMAL_SCALE } from '../risk/decimal.ts';
 import { evaluateRisk, type RiskContext, type RiskDecision } from '../risk/index.ts';
 import { DEFAULT_RISK_POLICY, type RiskPolicy } from '../risk/policy.ts';
 import { ledgerAmount } from '../tradeLedger.ts';
-import type { StrategyEvaluation } from './evaluate.ts';
+import type { TradeProposal } from '../risk/index.ts';
+import type { Indicators } from './indicators.ts';
+
+/** Any strategy's per-symbol output. `score` ranks BUYs (higher first); EMA uses its indicators. */
+export interface PlanCandidate {
+  symbol: string; reason: string; proposal: TradeProposal | null;
+  score?: readonly number[]; indicators?: Indicators | null;
+}
 
 export interface PlanItem {
   symbol: string;
@@ -23,13 +30,16 @@ const formatScaled = (value: bigint) => {
   return fraction ? `${whole}.${fraction}` : whole.toString();
 };
 
-/** Stronger volume confirmation first, then wider EMA spread, then symbol for determinism. */
-function buyOrder(a: StrategyEvaluation, b: StrategyEvaluation): number {
-  const va = a.indicators?.volumeRatio ?? 0; const vb = b.indicators?.volumeRatio ?? 0;
-  if (va !== vb) return vb - va;
-  const sa = a.indicators ? (a.indicators.ema20 - a.indicators.ema60) / a.indicators.ema60 : 0;
-  const sb = b.indicators ? (b.indicators.ema20 - b.indicators.ema60) / b.indicators.ema60 : 0;
-  if (sa !== sb) return sb - sa;
+/** EMA default: stronger volume confirmation first, then wider EMA spread. */
+const emaScore = (c: PlanCandidate): readonly number[] => c.indicators
+  ? [c.indicators.volumeRatio ?? 0, (c.indicators.ema20 - c.indicators.ema60) / c.indicators.ema60] : [];
+/** Higher score first, element by element; symbol breaks ties for determinism. */
+function buyOrder(a: PlanCandidate, b: PlanCandidate): number {
+  const sa = a.score ?? emaScore(a); const sb = b.score ?? emaScore(b);
+  for (let i = 0; i < Math.max(sa.length, sb.length); i++) {
+    const [x, y] = [sa[i] ?? 0, sb[i] ?? 0];
+    if (x !== y) return y - x;
+  }
   return a.symbol < b.symbol ? -1 : 1;
 }
 
@@ -38,7 +48,7 @@ function buyOrder(a: StrategyEvaluation, b: StrategyEvaluation): number {
  * item had executed: BUYs consume cash and a position slot; SELL proceeds are not treated as cash
  * (settlement). Pure and order-free; execution re-checks everything with fresh account data.
  */
-export function planSession(evaluations: readonly StrategyEvaluation[], context: RiskContext,
+export function planSession(evaluations: readonly PlanCandidate[], context: RiskContext,
   policy: Readonly<RiskPolicy> = DEFAULT_RISK_POLICY): SessionPlan {
   const reasons: Record<string, number> = {};
   for (const evaluation of evaluations) reasons[evaluation.reason] = (reasons[evaluation.reason] ?? 0) + 1;
