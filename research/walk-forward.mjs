@@ -13,6 +13,8 @@ const series = data.series.map((s) => ({ symbol: s.symbol, o: s.candles.map((c) 
   l: s.candles.map((c) => +c.low), c: s.candles.map((c) => +c.close) }));
 const COST = { comm: 0.0002, tax: 0.002, slip: 0.0005 };
 const MAX_POS = 5, WEIGHT = 0.10;
+// Optional trim: positions above TRIM_ABOVE of equity are cut back to WEIGHT at the next open.
+const TRIM_ABOVE = process.env.TRIM ? Number(process.env.TRIM) : Infinity;
 
 const sma = (a, t, n) => { if (t + 1 < n) return NaN; let s = 0; for (let i = t - n + 1; i <= t; i++) s += a[i]; return s / n; };
 const hi = (a, t, n) => { if (t < n) return NaN; let m = -Infinity; for (let i = t - n; i < t; i++) m = Math.max(m, a[i]); return m; }; // prior n days
@@ -26,9 +28,15 @@ function simulate(strategy, from, to) {
   const equityAt = (t, price) => cash + [...pos].reduce((sum, [i, p]) => sum + p.qty * series[i][price][t], 0);
   for (let t = from; t <= to; t++) {
     // 1) Execute yesterday's orders at today's open: sells first.
-    for (const order of orders.sort((a, b) => (a.side === b.side ? 0 : a.side === "SELL" ? -1 : 1))) {
+    for (const order of orders.sort((a, b) => (a.side === b.side ? 0 : a.side === 'BUY' ? 1 : b.side === 'BUY' ? -1 : 0))) {
       const s = series[order.i];
-      if (order.side === 'SELL') {
+      if (order.side === 'TRIM') {
+        const p = pos.get(order.i); if (!p) continue;
+        const px = s.o[t] * (1 - COST.slip); const target = Math.floor(equityAt(t, 'o') * WEIGHT / s.o[t]);
+        const qty = p.qty - target; if (qty < 1 || target < 1) continue;
+        const costPart = p.cost * qty / p.qty; cash += qty * px * (1 - COST.comm - COST.tax);
+        p.cost -= costPart; p.qty = target;
+      } else if (order.side === 'SELL') {
         const p = pos.get(order.i); if (!p) continue;
         const px = s.o[t] * (1 - COST.slip); const net = p.qty * px * (1 - COST.comm - COST.tax);
         cash += net; trades.push((net - p.cost) / p.cost); pos.delete(order.i);
@@ -45,7 +53,10 @@ function simulate(strategy, from, to) {
     const eq = equityAt(t, 'c'); peak = Math.max(peak, eq); mdd = Math.max(mdd, (peak - eq) / peak);
     exposureSum += 1 - cash / eq; days++;
     // 3) Decide at close for tomorrow's open.
-    if (t < to) orders = strategy(t, pos);
+    if (t < to) {
+      orders = strategy(t, pos);
+      for (const [i, p] of pos) if (!orders.some((o) => o.i === i) && p.qty * series[i].c[t] > eq * TRIM_ABOVE) orders.push({ side: 'TRIM', i });
+    }
   }
   const final = equityAt(to, 'c');
   const years = (to - from + 1) / 250;
