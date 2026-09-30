@@ -32,3 +32,19 @@ export function validateDataset(data: MarketDataset): void {
       || series.candles.some((bar, i) => bar.date !== data.sessions[i])) throw new Error('Missing/unexpected session');
   }
 }
+
+/**
+ * KRX limits a session's move to ±30% of the base price, so a larger jump between consecutive raw
+ * bars means a corporate action (split, merger, spin-off) rather than trading. Raw prices are not
+ * adjusted, so such a series would fake a crash or rally; callers must exclude it.
+ */
+export function hasPriceDiscontinuity(candles: readonly DailyCandle[]): boolean {
+  for (let i = 1; i < candles.length; i++) {
+    const previous = ledgerAmount(candles[i - 1]!.close);
+    for (const price of [candles[i]!.open, candles[i]!.close].map(ledgerAmount)) {
+      // Allow 0.1% beyond the limit for base-price and tick rounding.
+      if (price * 1000n > previous * 1301n || price * 1000n < previous * 699n) return true;
+    }
+  }
+  return false;
+}

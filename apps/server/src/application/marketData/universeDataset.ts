@@ -1,6 +1,6 @@
 import { seoulOrderDate } from '../../domain/orders.ts';
 import { krxSessionStatus, previousKrxSession } from '../../domain/scheduler/krxCalendar.ts';
-import type { MarketDataset } from '../../domain/strategy/marketData.ts';
+import { hasPriceDiscontinuity, type MarketDataset } from '../../domain/strategy/marketData.ts';
 import { confirmationStart } from '../paperLoop/prepare.ts';
 import { datasetSchema } from '../strategy/input.ts';
 import type { DailySnapshotRepository } from './ports.ts';
@@ -32,6 +32,7 @@ export function createUniverseDatasetBuilder(deps: { snapshots: DailySnapshotRep
       const own = snapshot.dataset.series[0];
       sessions ??= [...snapshot.dataset.sessions];
       if (!own || own.symbol !== symbol || snapshot.dataset.sessions.join() !== sessions.join()) { excluded.push({ symbol, reason: 'sessions_mismatch' }); continue; }
+      if (hasPriceDiscontinuity(own.candles)) { excluded.push({ symbol, reason: 'price_discontinuity' }); continue; }
       series.push({ symbol, candles: own.candles });
     }
     if (!sessions || series.length === 0) return { status: 'skipped', reason: 'no_confirmed_data' };

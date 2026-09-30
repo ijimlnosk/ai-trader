@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { seoulOrderDate } from '../../domain/orders.ts';
 import { KRX_CALENDAR, krxSessionStatus, krxSessionsBetween, previousKrxSession } from '../../domain/scheduler/krxCalendar.ts';
-import type { DailyCandle } from '../../domain/strategy/marketData.ts';
+import { hasPriceDiscontinuity, type DailyCandle } from '../../domain/strategy/marketData.ts';
 import { datasetSchema } from '../strategy/input.ts';
 import type { DailyHistorySource, DailySnapshot, DailySnapshotRepository } from './ports.ts';
 
@@ -10,7 +10,7 @@ const COLLECTABLE_MINUTE_SEOUL = 18 * 60 + 30;
 
 export type CollectResult =
   | { status: 'saved' | 'unchanged'; snapshot: DailySnapshot }
-  | { status: 'skipped'; reason: 'calendar_unknown' | 'bar_missing' | 'calendar_mismatch' };
+  | { status: 'skipped'; reason: 'calendar_unknown' | 'bar_missing' | 'calendar_mismatch' | 'price_discontinuity' };
 
 const sha256 = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
@@ -41,6 +41,7 @@ export function createDailySnapshotCollector(deps: {
     if (!expected || expected.length !== candles.length || candles.some((bar, i) => bar.date !== expected[i])) {
       return { status: 'skipped', reason: 'calendar_mismatch' };
     }
+    if (hasPriceDiscontinuity(candles)) return { status: 'skipped', reason: 'price_discontinuity' };
     const dataset = datasetSchema.parse({ source: history.source, timezone: 'Asia/Seoul', priceBasis: 'raw',
       sessions: expected, series: [{ symbol, candles }] });
     const previous = await deps.snapshots.latest(symbol);

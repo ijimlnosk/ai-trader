@@ -55,6 +55,7 @@ describe('daily snapshot collector', () => {
     ['session gap', [bar('20260922'), bar('20260928')], 'calendar_mismatch'],
     ['closure bar', [bar('20260923'), bar('20260924'), bar('20260928')], 'calendar_mismatch'],
     ['bar before coverage', [bar('20260429'), bar('20260430')], 'bar_missing'],
+    ['split inside the window', [bar('20260922'), bar('20260923'), { ...bar('20260928'), open: '54000', high: '54400', low: '53600', close: '54200' }], 'price_discontinuity'],
   ])('skips without saving when %s', async (_name, candles, reason) => {
     const snapshots = createMemorySnapshotRepository();
     const result = await createDailySnapshotCollector({ history: stubHistory(candles), snapshots, now: at('2026-09-29T00:00:00.000Z') })('005930');
