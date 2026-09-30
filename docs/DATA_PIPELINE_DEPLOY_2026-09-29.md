@@ -143,3 +143,14 @@ One budgeted probe to the API Hub returned 200. Commit with the corrected adapte
 First run: 54 calls, 1,080 items for 54 symbols, 0 failures. Usage today: `naver-api-hub-news`
 55/1,000 (probe + run), month 55/20,000; the two earlier developers.naver.com calls are recorded
 separately as `naver-news`.
+
+## Momentum plans, loss cooldown and corporate-action guard deployed (2026-09-30 14:51 / 15:02 KST)
+
+Commits through `34917e6` (evidence `/home/jinsol/ai-trader-backups/momentum-deploy-20260930`, DB dump
+ok; orders/executions/fills/loop runs unchanged). After the 14:51 restart the momentum plan failed on
+a KIS balance TIMEOUT (first KIS call after restart) and the day's news was collected a second time
+(usage 55 → 109). Fix `e2716d1..` / schedule-fix commit deployed at 15:02 (evidence
+`/home/jinsol/ai-trader-backups/schedule-fix-20260930`): failed plan runners retry up to three times,
+and news collection stops when persisted usage already covers the day (`news_already_collected`,
+usage stayed 109). The 15:02 restart was after the 09:05–15:00 plan window, so the first
+momentum plan will be on 2026-10-01.
