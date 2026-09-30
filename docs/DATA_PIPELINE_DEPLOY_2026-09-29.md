@@ -132,3 +132,14 @@ Commit `a132751` deployed; evidence `/home/jinsol/ai-trader-backups/plan-deploy-
 confirmed this morning because universe collection starts at 18:30 KST today. Orders, executions,
 fills and loop runs unchanged; strategy_runs 1 → 2. The owner toggle currently reports
 `paper_loop_paused`. The first full 54-symbol plan is expected on 2026-10-01 09:05 KST.
+
+## News archive enabled via NAVER API Hub (2026-09-30 12:13 KST)
+
+Root cause of the earlier 401 (`024 NID AUTH Result Invalid`): the owner's key pair belongs to
+NCP NAVER API Hub (`NAVER_SCH_NEWS`), whose endpoint is `naverapihub.apigw.ntruss.com/search/v1/news`
+with `X-NCP-APIGW-API-KEY-ID`/`X-NCP-APIGW-API-KEY`; the adapter had called developers.naver.com.
+One budgeted probe to the API Hub returned 200. Commit with the corrected adapter deployed
+(evidence `/home/jinsol/ai-trader-backups/ncp-news-deploy-20260930`); `NEWS_SCHEDULE_ENABLED=true`.
+First run: 54 calls, 1,080 items for 54 symbols, 0 failures. Usage today: `naver-api-hub-news`
+55/1,000 (probe + run), month 55/20,000; the two earlier developers.naver.com calls are recorded
+separately as `naver-news`.
