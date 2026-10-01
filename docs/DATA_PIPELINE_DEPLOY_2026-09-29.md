@@ -173,3 +173,11 @@ git-ignored local `.env` without printing it and validated with a free models-li
 Screening targets momentum BUY candidates and holdings; with no holdings and no rebalance until the
 2026-10-06 close, the first model calls are expected on 2026-10-07. Measurement calls today: 15
 (≈ $0.19) from the operator workstation, outside the server budget ledger.
+
+## Momentum daily rebalance deployed (2026-10-01 10:43 KST)
+
+Commit `b43c08d` (decision 0016); evidence `/home/jinsol/ai-trader-backups/daily-rebalance-20261001`
+(backups, DB dump ok; read-only ledger snapshots equal except the capture time). Server image rebuilt
+and restarted; health `paper`, database connected. Today's plan was already saved under the weekly
+cadence (cached by run key), so the first daily-cadence plan is 2026-10-02: entries and rank exits
+are evaluated at every session close from then on. `.env` unchanged.
