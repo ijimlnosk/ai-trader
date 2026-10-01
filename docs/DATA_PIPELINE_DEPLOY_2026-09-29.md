@@ -181,3 +181,27 @@ Commit `b43c08d` (decision 0016); evidence `/home/jinsol/ai-trader-backups/daily
 and restarted; health `paper`, database connected. Today's plan was already saved under the weekly
 cadence (cached by run key), so the first daily-cadence plan is 2026-10-02: entries and rank exits
 are evaluated at every session close from then on. `.env` unchanged.
+
+## Incident: two PostgreSQL servers on one volume (2026-10-01 10:42–11:14 KST)
+
+Cause: the 10:41 restart used `docker compose -p ai-trader-app up -d server` without `--no-deps`.
+The app Compose file's `db` service mounts the same external volume as the live database
+`ai-trader-db` (project `ai-trader`), so `ai-trader-app-db-1` started on the same data directory
+and answered the shared `db` alias. The app used it for 32 minutes; only migration 0011 was written
+there. No orders were affected (no holdings, no orders scheduled).
+
+Response (owner approved): server stopped, duplicate killed and removed; a logical dump of
+`ai-trader-db` was byte-identical in content to the clean 10:30 dump; the volume was copied to
+`ai-trader_postgres_incident_20261001`, reinitialized and restored from that dump (restore verified
+identical), migration 0011 applied, server started with `--no-deps`. Evidence:
+`/home/jinsol/ai-trader-backups/db-incident-20261001`.
+
+Prevention: on the server, the app Compose `db` service is now behind the `standalone-db` profile and
+the server's dependency on it is `required: false`. **Always pass `--no-deps` to `up` and `run` for
+this deployment.** Back up and inspect `ai-trader-db` (the live database), not an app-project container.
+
+## Minute bar archive enabled (2026-10-01 11:20 KST)
+
+Commit `82a5c94` (decision 0017, migration 0011); evidence `/home/jinsol/ai-trader-backups/minute-bars-20261001`.
+`.env`: `MINUTE_BARS_SCHEDULE_ENABLED=true`; server Compose passes the flag. First collection
+expected today from 15:40 KST (54 symbols, about 750 KIS quote calls). Data only.
