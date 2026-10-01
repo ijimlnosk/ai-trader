@@ -275,3 +275,15 @@ export const newsAssessments = pgTable('news_assessments', {
   createdAt: instant('created_at').notNull().defaultNow(),
 }, (t) => [uniqueIndex('news_assessments_session_symbol_idx').on(t.sessionDate, t.symbol),
   check('news_assessments_status', sql`${t.status} IN ('assessed','unavailable','no_news','budget_exhausted')`)]);
+
+/** Research archive of regular-session minute bars, one row per symbol and session; not used for orders. */
+export const marketMinuteBars = pgTable('market_minute_bars', {
+  symbol: text('symbol').notNull(),
+  sessionDate: text('session_date').notNull(),
+  bars: jsonb('bars').$type<import('../../application/marketData/minuteBars.ts').MinuteBar[]>().notNull(),
+  barCount: integer('bar_count').notNull(),
+  source: text('source').notNull(),
+  rawSha256: text('raw_sha256').notNull(),
+  retrievedAt: instant('retrieved_at').notNull(),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.symbol, t.sessionDate] })]);

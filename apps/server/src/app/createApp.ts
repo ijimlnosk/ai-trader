@@ -44,13 +44,15 @@ import { createMomentumExecutor } from '../application/strategy/momentumExecutio
 import { AI_COST_PROVIDER, createNewsScreener, type AssessmentRepository } from '../application/analysis/screen.ts';
 import { seoulOrderDate } from '../domain/orders.ts';
 import type { NewsAssessor } from '../application/analysis/ports.ts';
+import { createMinuteBarCollector, type MinuteBarRepository, type MinuteBarSource } from '../application/marketData/minuteBars.ts';
+import { createMinuteBarSchedule } from '../application/marketData/minuteSchedule.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
   dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
     dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string;
     tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
-    newsAssessor?: NewsAssessor; assessments?: AssessmentRepository },
+    newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -147,6 +149,14 @@ export function createApp(
       loop: environment.PAPER_LOOP_SCHEDULE_ENABLED && prepare && tick && controls ? { prepare, tick, isEnabled: controls.isAutoTradingEnabled } : undefined });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Daily schedule')); });
+    app.addHook('preClose', async () => { await stop?.(); });
+  }
+  if (environment.MINUTE_BARS_SCHEDULE_ENABLED) {
+    if (!dependencies.minuteBars || !dependencies.minuteBarSource) throw new Error('Minute bar schedule dependencies required');
+    const step = createMinuteBarSchedule({ collect: createMinuteBarCollector({ source: dependencies.minuteBarSource, repository: dependencies.minuteBars }),
+      symbols: universeSymbols(), report: (event, detail) => app.log.info({ event, ...detail }, 'Minute bar schedule') });
+    let stop: (() => Promise<void>) | undefined;
+    app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Minute bar schedule'), 60000); });
     app.addHook('preClose', async () => { await stop?.(); });
   }
   if (environment.PAPER_LOOP_ENABLED && environment.PAPER_LOOP_TASK_FILE) {

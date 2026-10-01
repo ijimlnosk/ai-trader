@@ -34,6 +34,7 @@ const schema = z.object({
   NEWS_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   UNIVERSE_PLAN_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   MOMENTUM_EXECUTION_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  MINUTE_BARS_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   ANTHROPIC_API_KEY: optionalSecret,
   // AI news screening of momentum candidates; record-only until enforcement is separately approved.
   NEWS_ANALYSIS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),

@@ -78,6 +78,13 @@
       "when": 1790751975950,
       "tag": "0010_news_assessments",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790819853490,
+      "tag": "0011_market_minute_bars",
+      "breakpoints": true
     }
   ]
 }

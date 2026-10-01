@@ -10,14 +10,17 @@ import type { OrderBroker } from '../../../application/orders/ports.ts';
 import { createKisOrderAdapter } from './kisOrderAdapter.ts';
 import type { DailyHistorySource } from '../../../application/marketData/ports.ts';
 import { createKisDailyHistory } from './kisDailyHistory.ts';
+import type { MinuteBarSource } from '../../../application/marketData/minuteBars.ts';
+import { createKisMinuteBars } from './kisMinuteBars.ts';
 
-export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now, diagnostic?: KisDiagnosticSink, minRequestIntervalMs = 0): MarketBroker & AccountBroker & OrderBroker & DailyHistorySource {
+export function createKisBroker(config: KisConfiguration, fetcher?: KisFetch, now = Date.now, diagnostic?: KisDiagnosticSink, minRequestIntervalMs = 0): MarketBroker & AccountBroker & OrderBroker & DailyHistorySource & MinuteBarSource {
   const session = createKisSession(config, fetcher, now, diagnostic, minRequestIntervalMs);
   return {
     isConfigured: session.isConfigured,
     ...createKisPortfolioAdapter(config, session),
     ...createKisOrderAdapter(config, session),
     ...createKisDailyHistory(session, now),
+    ...createKisMinuteBars(session),
     async getQuote(symbol) {
       if (symbol.length !== 6 || !/^[0-9]{6}$/.test(symbol)) throw new BrokerError('invalid_symbol');
       const query = new URLSearchParams({ FID_COND_MRKT_DIV_CODE: 'J', FID_INPUT_ISCD: symbol });

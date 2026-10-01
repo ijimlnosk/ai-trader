@@ -1,4 +1,5 @@
 import type { AuthService } from '../application/auth/index.ts';
+import type { MinuteBarRepository } from '../application/marketData/minuteBars.ts';
 import type { TradingControlRepository } from '../application/controls/index.ts';
 import type { ApiQuota, NewsRepository } from '../application/news/ports.ts';
 import { createNaverNewsSearch } from '../infrastructure/news/naverNews.ts';
@@ -25,7 +26,7 @@ export function createRuntimeApp(
   marketBroker?: MarketBroker, accountBroker?: AccountBroker,
   orderRepository?: OrderRepository, strategyRunRepository?: StrategyRunRepository, paperLoopRepository?: PaperLoopRepository,
   dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository, auth?: AuthService, executionAccount?: string, tradingControls?: TradingControlRepository,
-  newsRepository?: NewsRepository, apiQuota?: ApiQuota, assessments?: AssessmentRepository,
+  newsRepository?: NewsRepository, apiQuota?: ApiQuota, assessments?: AssessmentRepository, minuteBarRepository?: MinuteBarRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
@@ -54,6 +55,7 @@ export function createRuntimeApp(
     ...(strategyRunRepository ? { strategyRuns: strategyRunRepository } : {}),
     ...(dailySnapshotRepository ? { dailySnapshots: dailySnapshotRepository, dailyHistory: broker } : {}),
     ...(consoleReadRepository ? { consoleRead: consoleReadRepository } : {}),
+    ...(minuteBarRepository ? { minuteBars: minuteBarRepository, minuteBarSource: broker } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,
   }, logger);
