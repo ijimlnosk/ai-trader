@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { explicitSessionCalendar, isSeoulTradingSession } from '../../domain/scheduler/session.ts';
-import { DEFAULT_MOMENTUM_CONFIG, evaluateMomentum, isFirstSessionOfWeek, wholeShares } from '../../domain/strategy/momentum.ts';
+import { DEFAULT_MOMENTUM_CONFIG, evaluateMomentum, isRebalanceSession, wholeShares } from '../../domain/strategy/momentum.ts';
 import type { UniverseDatasetBuilder } from '../marketData/universeDataset.ts';
 import { riskPortfolioSchema } from '../paperRiskContext.ts';
 import type { AccountBroker } from '../portfolio.ts';
@@ -34,7 +34,7 @@ export function createMomentumPlanRunner(deps: { build: UniverseDatasetBuilder; 
       || context.openPositionCount !== portfolio.data.positions.length) return { status: 'skipped', reason: 'account_context_unavailable' };
     const holdings = new Map(portfolio.data.positions.map((position) => [position.symbol, wholeShares(position.quantity)]));
     const signals = evaluateMomentum({ series: data.series, holdings, account: context, source: data.source,
-      rebalance: isFirstSessionOfWeek(data.sessions.at(-2), data.sessions.at(-1)!) });
+      rebalance: isRebalanceSession(data.sessions.at(-2), data.sessions.at(-1)!) });
     await deps.runs.put({ runKey, sessionDate, createdAt: at.toISOString(), dataSha256, result: { mode: 'paper', dataSha256,
       configuration: DEFAULT_MOMENTUM_CONFIG, evaluations: signals.map((signal) => ({ signal, context, decision: null })), order: null } });
     return { status: 'saved', runKey, scanned, excluded };

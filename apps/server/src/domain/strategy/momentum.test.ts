@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DailyCandle } from './marketData.ts';
-import { DEFAULT_MOMENTUM_CONFIG, evaluateMomentum, isFirstSessionOfWeek, type MomentumInput } from './momentum.ts';
+import { DEFAULT_MOMENTUM_CONFIG, evaluateMomentum, isFirstSessionOfWeek, isRebalanceSession, type MomentumInput } from './momentum.ts';
 
 // 130 weekday sessions ending 2026-09-29; price path from a per-day growth rate.
 const dates: string[] = [];
@@ -69,5 +69,15 @@ describe('weekly rebalance day', () => {
     expect(isFirstSessionOfWeek('20260928', '20260929')).toBe(false);
     expect(isFirstSessionOfWeek('20261002', '20261006')).toBe(true); // Fri -> Tue (Mon closed)
     expect(isFirstSessionOfWeek(undefined, '20260929')).toBe(true);
+  });
+});
+
+describe('rebalance cadence', () => {
+  it('rebalances every session by default and only on the first weekly session when configured weekly', () => {
+    expect(DEFAULT_MOMENTUM_CONFIG.rebalanceCadence).toBe('daily');
+    expect(isRebalanceSession('20260928', '20260929')).toBe(true);
+    const weekly = { ...DEFAULT_MOMENTUM_CONFIG, rebalanceCadence: 'weekly' as const };
+    expect(isRebalanceSession('20260928', '20260929', weekly)).toBe(false);
+    expect(isRebalanceSession('20261002', '20261006', weekly)).toBe(true);
   });
 });

@@ -2,7 +2,7 @@ import { DEFAULT_RISK_POLICY } from '../../domain/risk/index.ts';
 import { ledgerAmount, ledgerDecimal } from '../../domain/tradeLedger.ts';
 import { DEFAULT_STRATEGY_CONFIG, validateStrategyConfig, type StrategyConfig } from '../../domain/strategy/config.ts';
 import { evaluateStrategy } from '../../domain/strategy/evaluate.ts';
-import { evaluateMomentum, isFirstSessionOfWeek, wholeShares } from '../../domain/strategy/momentum.ts';
+import { evaluateMomentum, isRebalanceSession, wholeShares } from '../../domain/strategy/momentum.ts';
 import { planSession } from '../../domain/strategy/plan.ts';
 import { validateDataset, type MarketDataset } from '../../domain/strategy/marketData.ts';
 import { accountSnapshot, type SimulationAccount } from './account.ts';
@@ -48,7 +48,7 @@ export function runBacktest(data: MarketDataset, settings: BacktestSettings = DE
     const signals = strategy === 'momentum-rotation'
       ? evaluateMomentum({ series: universe.map((series) => ({ symbol: series.symbol, candles: series.candles.slice(0, index + 1) })),
         holdings: new Map(universe.map((series) => [series.symbol, wholeShares(held(series.symbol))])),
-        account: snapshot.context, source: data.source, rebalance: isFirstSessionOfWeek(data.sessions[index - 1], date) })
+        account: snapshot.context, source: data.source, rebalance: isRebalanceSession(data.sessions[index - 1], date) })
       : universe.map((series) => evaluateStrategy(series.symbol, series.candles.slice(0, index + 1),
         { ...snapshot.context, heldQuantity: held(series.symbol) }, data.source, settings.strategy));
     // Same ordering and sequential risk context as the live session plan (SELLs first, ranked BUYs).

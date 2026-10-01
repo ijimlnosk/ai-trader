@@ -5,11 +5,14 @@ import { candleTime, type DailyCandle } from './marketData.ts';
 
 export const MOMENTUM_IDENTITY = { strategyId: 'momentum-rotation', version: '1' } as const;
 
-/** Selected in the 2026-09-30 walk-forward study (docs/STRATEGY_RESEARCH_2026-09-30.md). */
+/**
+ * Selected in the 2026-09-30 walk-forward study (docs/STRATEGY_RESEARCH_2026-09-30.md); daily
+ * rebalancing chosen by the owner on 2026-10-01 (decision 0016).
+ */
 export interface MomentumConfig { lookback: number; trendMa: number; keepRank: number; entryRanks: number;
-  allocationBps: number; trimAboveBps: number }
+  allocationBps: number; trimAboveBps: number; rebalanceCadence: 'daily' | 'weekly' }
 export const DEFAULT_MOMENTUM_CONFIG: Readonly<MomentumConfig> = Object.freeze({
-  lookback: 120, trendMa: 120, keepRank: 10, entryRanks: 5, allocationBps: 900, trimAboveBps: 1500 });
+  lookback: 120, trendMa: 120, keepRank: 10, entryRanks: 5, allocationBps: 900, trimAboveBps: 1500, rebalanceCadence: 'daily' });
 
 export type MomentumReason = 'MOMENTUM_ENTRY' | 'TREND_EXIT' | 'RANK_EXIT' | 'TRIM' | 'HOLD_POSITION'
   | 'NO_ENTRY' | 'NOT_REBALANCE_DAY' | 'INSUFFICIENT_HISTORY' | 'SIZE_UNAVAILABLE';
@@ -42,6 +45,12 @@ export function isFirstSessionOfWeek(previous: string | undefined, current: stri
   const day = (date: string) => Date.UTC(+date.slice(0, 4), +date.slice(4, 6) - 1, +date.slice(6));
   const monday = (date: string) => { const t = day(date); return t - ((new Date(t).getUTCDay() + 6) % 7) * 86400000; };
   return monday(previous) !== monday(current);
+}
+
+/** Whether entries and rank exits run at the close of `current`, per the configured cadence. */
+export function isRebalanceSession(previous: string | undefined, current: string,
+  config: Readonly<MomentumConfig> = DEFAULT_MOMENTUM_CONFIG): boolean {
+  return config.rebalanceCadence === 'daily' || isFirstSessionOfWeek(previous, current);
 }
 
 /**

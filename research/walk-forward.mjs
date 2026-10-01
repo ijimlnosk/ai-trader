@@ -71,16 +71,17 @@ function buyHold(from, to) {
 
 const strategies = {
   // Cross-sectional momentum rotation with trend filter.
-  momentum: ({ lookback, rebalance, trendMa, marketMa, keepRank }) => (t, pos) => {
+  momentum: ({ lookback, rebalance, trendMa, marketMa, keepRank, entryDaily = false }) => (t, pos) => {
     const orders = [];
     const marketOk = !marketMa || index[t] > sma(index, t, marketMa);
     // Daily protective exit: close below trend MA.
     for (const [i] of pos) if (series[i].c[t] < sma(series[i].c, t, trendMa)) orders.push({ side: 'SELL', i });
-    if (t % rebalance !== 0) return orders;
+    const rankDay = t % rebalance === 0;
+    if (!rankDay && !entryDaily) return orders;
     const ranked = series.map((s, i) => ({ i, score: s.c[t] / s.c[t - lookback] - 1, ok: t >= lookback && s.c[t] > sma(s.c, t, trendMa) }))
       .filter((x) => x.ok && x.score > 0).sort((a, b) => b.score - a.score);
     const rank = new Map(ranked.map((x, r) => [x.i, r]));
-    for (const [i] of pos) if (!rank.has(i) || rank.get(i) >= keepRank) if (!orders.some((o) => o.i === i)) orders.push({ side: 'SELL', i });
+    if (rankDay) for (const [i] of pos) if (!rank.has(i) || rank.get(i) >= keepRank) if (!orders.some((o) => o.i === i)) orders.push({ side: 'SELL', i });
     if (marketOk) for (const x of ranked.slice(0, MAX_POS)) if (!pos.has(x.i)) orders.push({ side: 'BUY', i: x.i });
     return orders;
   },
@@ -108,6 +109,18 @@ for (const entry of [20, 55]) for (const exit of [10, 20]) for (const trendMa of
   grid.breakout.push({ entry, exit, trendMa, marketMa });
 
 const warm = 260; // longest lookback
+if (process.env.COMPARE) {
+  const split = S.indexOf(process.argv[3] ?? '20251001');
+  const base = { lookback: 120, trendMa: 120, marketMa: 0, keepRank: 10 };
+  const variants = { 'A weekly (current)': { ...base, rebalance: 5 }, 'B daily full': { ...base, rebalance: 1 },
+    'C daily entries, weekly rank exits': { ...base, rebalance: 5, entryDaily: true } };
+  for (const [name, p] of Object.entries(variants)) {
+    const fmt = (r) => ({ ret: +r.ret.toFixed(4), mdd: +r.mdd.toFixed(4), trades: r.trades, win: r.win === null ? null : +r.win.toFixed(3) });
+    console.log(name, 'IN', JSON.stringify(fmt(simulate(strategies.momentum(p), warm, split - 1))), 'OUT', JSON.stringify(fmt(simulate(strategies.momentum(p), split, T - 1))),
+      'FULL', JSON.stringify(fmt(simulate(strategies.momentum(p), warm, T - 1))));
+  }
+  process.exit(0);
+}
 const split = S.indexOf(process.argv[3] ?? '20251001');
 const inFrom = warm, inTo = split - 1, outFrom = split, outTo = T - 1;
 const results = [];
