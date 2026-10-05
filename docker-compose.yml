@@ -1,5 +1,8 @@
 services:
+  # On sol-server the live database is ai-trader-db (project ai-trader) using the same volume.
+  # Starting this service there too would run two servers on one data directory, so it is opt-in.
   db:
+    profiles: ["standalone-db"]
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -57,6 +60,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+        required: false
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

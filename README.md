@@ -108,7 +108,8 @@ docker compose -p <existing-project> logs --tail=100 server
 ```
 
 For a NEW disposable/local Compose environment only, explicitly create a new volume and set its name,
-then use `docker compose up -d db` before migration/server start. No volume creation/deletion is automated.
+then use `docker compose --profile standalone-db up -d db` before migration/server start (the `db`
+service is opt-in so it can never start next to an existing database on the same volume). No volume creation/deletion is automated.
 Never run `docker compose down -v` or `docker volume rm` on existing infrastructure.
 PostgreSQL has no host port binding. HTTP binds `127.0.0.1:3200:3000`.
 
