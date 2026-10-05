@@ -63,7 +63,7 @@ upstream errors; manual check through the tunnel. Repository gates must include 
 
 # Remaining Work
 
-v1 complete. Possible follow-ups: consolidate the four duplicated bearer checks in server routes;
+v1 complete. Possible follow-ups (bearer checks consolidated into `interfaces/http/serviceToken.ts` 2026-10-05):
 show daily-schedule events once they are persisted (currently logs only).
 
 2026-09-30: mobile-first redesign (`34ddd7b`) deployed to `trader.jjinsol.com` 00:32 KST: sticky app bar

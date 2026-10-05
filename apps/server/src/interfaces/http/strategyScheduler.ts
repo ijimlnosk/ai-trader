@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
-import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { datasetSchema } from '../../application/strategy/input.ts';
+import { hasBearerToken } from './serviceToken.ts';
 
 const inputSchema = z.strictObject({ runKey: z.string().min(1).max(120), sessionDate: z.string().regex(/^\d{8}$/), data: datasetSchema });
 type Scheduler = (runKey: string, sessionDate: string, data: z.infer<typeof datasetSchema>) => Promise<unknown>;
@@ -9,9 +9,7 @@ type Scheduler = (runKey: string, sessionDate: string, data: z.infer<typeof data
 export function registerStrategySchedulerRoute(app: FastifyInstance, scheduler: Scheduler, apiToken?: string) {
   app.post('/api/v1/strategy/schedule', async (request, reply) => {
     if (!apiToken) return reply.code(503).send({ error: { code: 'scheduler_disabled' } });
-    const provided = Buffer.from(request.headers.authorization ?? '');
-    const expected = Buffer.from(`Bearer ${apiToken}`);
-    if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) return reply.code(401).send({ error: { code: 'unauthorized' } });
+    if (!hasBearerToken(request.headers.authorization, apiToken)) return reply.code(401).send({ error: { code: 'unauthorized' } });
     try {
       const input = inputSchema.parse(request.body);
       return await scheduler(input.runKey, input.sessionDate, input.data);

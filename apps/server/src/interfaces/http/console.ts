@@ -1,7 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { CONSOLE_MAX_LIMIT, type ConsoleQueries } from '../../application/console/index.ts';
+import { hasBearerToken } from './serviceToken.ts';
 
 const querySchema = z.strictObject({ limit: z.coerce.number().int().min(1).max(CONSOLE_MAX_LIMIT).default(20) });
 
@@ -11,11 +11,7 @@ export function registerConsoleRoutes(app: FastifyInstance, queries: ConsoleQuer
     routes.addHook('onRequest', async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
       if (!readToken || !queries) return reply.code(503).send({ error: { code: 'console_disabled' } });
-      const supplied = Buffer.from(request.headers.authorization ?? '');
-      const expected = Buffer.from(`Bearer ${readToken}`);
-      if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
-        return reply.code(401).send({ error: { code: 'unauthorized' } });
-      }
+      if (!hasBearerToken(request.headers.authorization, readToken)) return reply.code(401).send({ error: { code: 'unauthorized' } });
     });
     routes.setErrorHandler(async (error, _request, reply) => {
       if (error instanceof z.ZodError) return reply.code(400).send({ error: { code: 'invalid_request' } });

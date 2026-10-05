@@ -1,22 +1,18 @@
 import type { StrategyService } from '../../application/strategy/index.ts';
 import { strategyInputSchema } from '../../application/strategy/input.ts';
-import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { orderResponse, type OrderServices } from '../../application/orders/index.ts';
 import { orderInputSchema } from '../../application/orders/input.ts';
 import { OrderError } from '../../application/orders/ports.ts';
+import { hasBearerToken } from './serviceToken.ts';
 
 export function registerOrderRoutes(app: FastifyInstance, services: OrderServices | undefined, apiToken: string | undefined, strategy?: StrategyService) {
   app.register(async (routes) => {
     routes.addHook('onRequest', async (request, reply) => {
       reply.header('Cache-Control', 'no-store');
       if (!services || !apiToken) return reply.code(503).send({ error: { code: 'execution_disabled' } });
-      const provided = Buffer.from(request.headers.authorization ?? '');
-      const expected = Buffer.from(`Bearer ${apiToken}`);
-      if (provided.length !== expected.length || !timingSafeEqual(provided, expected)) {
-        return reply.code(401).send({ error: { code: 'unauthorized' } });
-      }
+      if (!hasBearerToken(request.headers.authorization, apiToken)) return reply.code(401).send({ error: { code: 'unauthorized' } });
     });
     routes.setErrorHandler((error, request, reply) => {
       const badRequest = error instanceof z.ZodError || (error instanceof Error && 'statusCode' in error && error.statusCode === 400);

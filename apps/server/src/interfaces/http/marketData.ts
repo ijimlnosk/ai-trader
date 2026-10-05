@@ -1,14 +1,8 @@
-import { timingSafeEqual } from 'node:crypto';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { DailySnapshotCollector } from '../../application/marketData/collect.ts';
 import type { PaperLoopPreparer } from '../../application/paperLoop/prepare.ts';
 import { BrokerError } from '../../application/brokerError.ts';
-
-function isAuthorized(request: FastifyRequest, apiToken: string): boolean {
-  const supplied = Buffer.from(request.headers.authorization ?? '');
-  const expected = Buffer.from(`Bearer ${apiToken}`);
-  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
-}
+import { hasBearerToken } from './serviceToken.ts';
 
 /** Order-free operator endpoints: archive completed daily bars and preview the next loop input. */
 export function registerMarketDataRoutes(app: FastifyInstance, deps: {
@@ -17,7 +11,7 @@ export function registerMarketDataRoutes(app: FastifyInstance, deps: {
   app.post('/api/v1/market/daily-snapshots/collect', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');
     if (!deps.apiToken || !deps.collect) return reply.code(503).send({ error: { code: 'market_data_disabled' } });
-    if (!isAuthorized(request, deps.apiToken)) return reply.code(401).send({ error: { code: 'unauthorized' } });
+    if (!hasBearerToken(request.headers.authorization, deps.apiToken)) return reply.code(401).send({ error: { code: 'unauthorized' } });
     try {
       const result = await deps.collect('005930');
       if (result.status === 'skipped') return result;
@@ -33,7 +27,7 @@ export function registerMarketDataRoutes(app: FastifyInstance, deps: {
   app.get('/api/v1/strategy/paper-loop/prepared', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');
     if (!deps.apiToken || !deps.prepare) return reply.code(503).send({ error: { code: 'market_data_disabled' } });
-    if (!isAuthorized(request, deps.apiToken)) return reply.code(401).send({ error: { code: 'unauthorized' } });
+    if (!hasBearerToken(request.headers.authorization, deps.apiToken)) return reply.code(401).send({ error: { code: 'unauthorized' } });
     try { return await deps.prepare(); }
     catch { return reply.code(503).send({ error: { code: 'market_data_unavailable' } }); }
   });
