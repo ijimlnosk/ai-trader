@@ -220,3 +220,20 @@ Finding (not changed): the momentum plans of 10/01 and 10/02 marked all 54 symbo
 momentum needs `max(lookback, trendMa) + 1 = 121`. Momentum has therefore sent no orders, and AI news
 screening has made no assessments (no candidates). Fixing this needs multi-page history collection and
 a separate approval.
+
+## Momentum history fix deployed (2026-10-05 20:33 KST)
+
+Commit `fd2b880` (paged KIS daily history, calendar `krx-2026-v2` from 2026-01-02). Evidence
+`/home/jinsol/ai-trader-backups/momentum-history-20261005` (source before, `.env`, DB dump, update package
+SHA-256 `f932e85e8693…`); the three replaced files matched `01f5f08` on the server. Image built;
+`up -d --no-deps server`; healthy; `.env` and Compose unchanged.
+
+Verification: the collect endpoint archived 005930 through 20261002 with **184 bars** (two KIS pages),
+calendar-aligned, version `krx-2026-v2`. Its 10/02 bar matches the 10/02 18:30 snapshot except volume
+(11,286,561 → 11,501,250), recorded in `revisedDates`; the 18:30 collection evidently preceded KIS's final
+after-hours volume. Prices are identical.
+
+Expected on 2026-10-06: the 08:00 collection archives about 184 bars for each universe symbol (two KIS
+calls per symbol), and the 09:05 momentum plan evaluates instead of `INSUFFICIENT_HISTORY`. With
+`MOMENTUM_EXECUTION_ENABLED=true`, approved entries are sent as paper orders through the Risk Engine
+(at most 5 positions, 9% allocation each); AI news screening records assessments for the candidates.
