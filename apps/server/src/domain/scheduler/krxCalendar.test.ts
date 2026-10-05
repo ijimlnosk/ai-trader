@@ -13,7 +13,7 @@ describe('KRX calendar', () => {
 
   it('treats coverage boundaries, uncovered and invalid dates as unknown', () => {
     expect(krxSessionStatus(KRX_CALENDAR.from)).toBe('session');
-    expect(krxSessionStatus('20260429')).toBe('unknown');
+    expect(krxSessionStatus('20260101')).toBe('unknown');
     expect(krxSessionStatus(KRX_CALENDAR.through)).toBe('session');
     expect(krxSessionStatus('20261231')).toBe('unknown');
     expect(krxSessionStatus('20260230')).toBe('unknown');
@@ -38,20 +38,26 @@ describe('KRX calendar', () => {
 
   it('returns null rather than guessing beyond coverage', () => {
     expect(nextKrxSession('20261230')).toBeNull();
-    expect(previousKrxSession('20260430')).toBeNull();
+    expect(previousKrxSession('20260102')).toBeNull();
     expect(previousKrxSession('20270104')).toBeNull();
     expect(nextKrxSession('bad')).toBeNull();
   });
 
   it('lists sessions only for fully covered ranges', () => {
     expect(krxSessionsBetween('20260922', '20260930')).toEqual(['20260922', '20260923', '20260928', '20260929', '20260930']);
-    expect(krxSessionsBetween('20260420', '20260505')).toBeNull();
+    expect(krxSessionsBetween('20251229', '20260105')).toBeNull();
     expect(krxSessionsBetween('20261201', '20261231')).toBeNull();
     expect(krxSessionsBetween('20260930', '20260922')).toBeNull();
   });
 
   it('matches the 100 independently checked sessions from 2026-04-30 to 2026-09-28', () => {
     expect(krxSessionsBetween('20260430', '20260928')).toHaveLength(100);
+  });
+
+  it('matches the 81 KIS sessions from 2026-01-02 to 2026-04-30 (v2 extension)', () => {
+    expect(krxSessionsBetween('20260102', '20260430')).toHaveLength(81);
+    for (const date of ['20260216', '20260217', '20260218', '20260302']) expect(krxSessionStatus(date)).toBe('closed');
+    expect(previousKrxSession('20260430')).toBe('20260429');
   });
 });
 

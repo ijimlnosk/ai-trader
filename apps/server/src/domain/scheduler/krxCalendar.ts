@@ -8,17 +8,19 @@ export type KrxSessionStatus = 'session' | 'closed' | 'unknown';
  * Update by adding source-cited closures and bumping the version; never infer from weekdays alone.
  */
 export const KRX_CALENDAR = {
-  version: 'krx-2026-v1',
-  from: '20260430',
+  version: 'krx-2026-v2',
+  from: '20260102',
   // 2026-12-31 year-end closure not yet confirmed by a 2026 source; leave it unknown.
   through: '20261230',
   closures: [
+    '20260216', '20260217', '20260218', '20260302',
     '20260501', '20260505', '20260525', '20260603', '20260717', '20260817',
     '20260924', '20260925', '20261005', '20261009', '20261225',
   ],
   sources: [
     'docs/SCHEDULER_PREP_2026-09-28.md (Mirae Asset 2026 calendar; Samsung Securities notices)',
     'https://kr.investing.com/holiday-calendar/ (2026-10-05, 2026-10-09, 2026-12-25; checked 2026-09-29)',
+    'v2 (2026-10-05): 2026-01-02..04-29 weekday closures equal the dates absent from KIS FHKST03010100 bars of all 53 symbols in backtest-20260930/dataset3y.json',
   ],
 } as const;
 

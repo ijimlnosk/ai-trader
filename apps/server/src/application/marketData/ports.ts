@@ -6,7 +6,7 @@ export interface DailyHistory {
   /** Human-readable provenance, e.g. provider, transaction and retrieval time. */
   source: string;
   retrievedAt: string;
-  /** SHA-256 of the provider's raw response body, retained for audit; the body itself is not. */
+  /** SHA-256 of the provider's raw response body (of the JSON array of bodies, newest first, when paged); bodies are not retained. */
   rawSha256: string;
 }
 

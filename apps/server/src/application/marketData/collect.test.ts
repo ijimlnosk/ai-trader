@@ -20,9 +20,9 @@ describe('daily snapshot collector', () => {
     const history = stubHistory(week);
     const snapshots = createMemorySnapshotRepository();
     const result = await createDailySnapshotCollector({ history, snapshots, now: at('2026-09-29T00:00:00.000Z') })('005930');
-    expect(history.calls).toEqual([['005930', '20260430', '20260928']]);
+    expect(history.calls).toEqual([['005930', '20260102', '20260928']]);
     expect(result).toMatchObject({ status: 'saved', snapshot: { symbol: '005930', through: '20260928',
-      calendarVersion: 'krx-2026-v1', rawSha256: 'a'.repeat(64), revisedDates: [] } });
+      calendarVersion: 'krx-2026-v2', rawSha256: 'a'.repeat(64), revisedDates: [] } });
     if (result.status !== 'saved') throw new Error('expected saved');
     expect(result.snapshot.dataset).toEqual({ source: 'fixture retrieved 2026-09-29T00:00:00.000Z', timezone: 'Asia/Seoul',
       priceBasis: 'raw', sessions: ['20260922', '20260923', '20260928'], series: [{ symbol: '005930', candles: week }] });
@@ -54,7 +54,7 @@ describe('daily snapshot collector', () => {
     ['no bars', [], 'bar_missing'],
     ['session gap', [bar('20260922'), bar('20260928')], 'calendar_mismatch'],
     ['closure bar', [bar('20260923'), bar('20260924'), bar('20260928')], 'calendar_mismatch'],
-    ['bar before coverage', [bar('20260429'), bar('20260430')], 'bar_missing'],
+    ['bar before coverage', [bar('20260101'), bar('20260102')], 'bar_missing'],
     ['split inside the window', [bar('20260922'), bar('20260923'), { ...bar('20260928'), open: '54000', high: '54400', low: '53600', close: '54200' }], 'price_discontinuity'],
   ])('skips without saving when %s', async (_name, candles, reason) => {
     const snapshots = createMemorySnapshotRepository();

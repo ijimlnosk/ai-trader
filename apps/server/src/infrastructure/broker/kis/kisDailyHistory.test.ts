@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { KIS_PAPER_URL, type KisFetch } from './kisClient.ts';
 import { createKisBroker } from './index.ts';
 
@@ -55,4 +55,56 @@ it('rejects invalid symbols and ranges before any request', async () => {
 it('returns an empty history when the provider has no bars', async () => {
   const history = await broker({ rt_cd: '0', output2: [{}, {}] }).adapter.getDailyHistory('005930', '20260430', '20260928');
   expect(history.candles).toEqual([]);
+});
+
+describe('paging', () => {
+  // Weekday dates before `end`, newest first, as KIS lists them.
+  function weekdays(end: string, count: number): string[] {
+    const dates: string[] = [];
+    for (let day = new Date(`${end.slice(0, 4)}-${end.slice(4, 6)}-${end.slice(6)}T00:00:00Z`); dates.length < count; day.setUTCDate(day.getUTCDate() - 1)) {
+      if (day.getUTCDay() % 6 !== 0) dates.push(day.toISOString().slice(0, 10).replaceAll('-', ''));
+    }
+    return dates;
+  }
+  const page = (dates: string[]) => ({ rt_cd: '0', output2: dates.map((date) => bar(date)) });
+  function pagedBroker(...pages: unknown[]) {
+    const fetcher = vi.fn<KisFetch>().mockResolvedValueOnce(json(token));
+    for (const value of pages) fetcher.mockResolvedValueOnce(json(value));
+    return { fetcher, adapter: createKisBroker(config, fetcher, () => Date.UTC(2026, 9, 5, 10)) };
+  }
+  const endDate = (url: unknown) => new URL(String(url)).searchParams.get('FID_INPUT_DATE_2');
+
+  it('requests older pages until a short page and joins them ascending', async () => {
+    const all = weekdays('20261002', 150);
+    const first = page(all.slice(0, 100)); const second = page(all.slice(100));
+    const { fetcher, adapter } = pagedBroker(first, second);
+    const history = await adapter.getDailyHistory('005930', '20260102', '20261002');
+    expect(history.candles.map((candle) => candle.date)).toEqual([...all].reverse());
+    const beforeOldest = new Date(`${all[99]!.slice(0, 4)}-${all[99]!.slice(4, 6)}-${all[99]!.slice(6)}T00:00:00Z`);
+    beforeOldest.setUTCDate(beforeOldest.getUTCDate() - 1);
+    expect(fetcher.mock.calls.slice(1).map(([url]) => endDate(url))).toEqual(['20261002', beforeOldest.toISOString().slice(0, 10).replaceAll('-', '')]);
+    expect(history.rawSha256).toBe(createHash('sha256').update(JSON.stringify([first, second])).digest('hex'));
+  });
+
+  it('stops when the oldest bar reaches the range start', async () => {
+    const all = weekdays('20261002', 100);
+    const { fetcher, adapter } = pagedBroker(page(all));
+    const history = await adapter.getDailyHistory('005930', all.at(-1)!, '20261002');
+    expect(history.candles).toHaveLength(100);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops after three full pages', async () => {
+    const all = weekdays('20261002', 300);
+    const { fetcher, adapter } = pagedBroker(page(all.slice(0, 100)), page(all.slice(100, 200)), page(all.slice(200)));
+    const history = await adapter.getDailyHistory('005930', '20230101', '20261002');
+    expect(history.candles).toHaveLength(300);
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it('rejects an older page that repeats or passes the requested end', async () => {
+    const all = weekdays('20261002', 100);
+    await expect(pagedBroker(page(all), page([all[99]!])).adapter.getDailyHistory('005930', '20260102', '20261002'))
+      .rejects.toMatchObject({ code: 'provider_invalid_response' });
+  });
 });

@@ -91,6 +91,10 @@ JSONB digest round trip and snapshot → prepared input).
   `PAPER_LOOP_SCHEDULE_ENABLED` (requires loop + execution opt-ins, no task file). Collection
   retries at most 3 times, 10 minutes apart. Ticks once per session 09:05–15:00 KST; a pre-claim
   admission refusal skips the day, any other failure halts ticks until restart. No catch-up.
+- 2026-10-05: momentum needs 121 bars but snapshots held 100 (one KIS page; calendar from 04-30 allowed
+  at most 104 through 10-02), so every momentum plan was `INSUFFICIENT_HISTORY`. KIS daily history now
+  pages backwards (at most 3 pages of 100) and the KRX calendar `krx-2026-v2` starts 2026-01-02; its
+  added closures (01-01 outside, 02-16..18, 03-02) equal the dates missing from KIS bars of 53 symbols.
 
 # Validation
 

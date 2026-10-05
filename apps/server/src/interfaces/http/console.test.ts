@@ -27,7 +27,7 @@ describe('console routes', () => {
     const response = await app().server.inject({ url: '/api/v1/console/status', headers: auth });
     expect(response.headers['cache-control']).toBe('no-store');
     expect(response.json()).toEqual({ checkedAt: '2026-09-29T06:00:00.000Z', ...flags,
-      calendar: { version: 'krx-2026-v1', from: '20260430', through: '20261230' } });
+      calendar: { version: 'krx-2026-v2', from: '20260102', through: '20261230' } });
   });
 
   it('summarizes loop runs without their input dataset', async () => {
