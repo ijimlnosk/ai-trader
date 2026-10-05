@@ -205,3 +205,18 @@ this deployment.** Back up and inspect `ai-trader-db` (the live database), not a
 Commit `82a5c94` (decision 0017, migration 0011); evidence `/home/jinsol/ai-trader-backups/minute-bars-20261001`.
 `.env`: `MINUTE_BARS_SCHEDULE_ENABLED=true`; server Compose passes the flag. First collection
 expected today from 15:40 KST (54 symbols, about 750 KIS quote calls). Data only.
+
+## Bearer check refactor deployed (2026-10-05 19:33 KST)
+
+Commit `f016f5c` (shared `hasBearerToken`, no behavior change; one-off `measureNewsAssessor` script
+removed). Evidence `/home/jinsol/ai-trader-backups/bearer-refactor-20261005` (source before, `.env`,
+custom-format DB dump, update package SHA-256 `98b5d24e0f29…`). The six replaced files matched `4af9f74`
+on the server before extraction. Image built; `up -d --no-deps server`; healthy. Server Compose and `.env`
+unchanged. Console, loop tick, collect, schedule, orders and portfolio return 401 with no or a wrong
+token; the console read token returns 200 (paper, live false). Only `ai-trader-db` serves the volume.
+
+Finding (not changed): the momentum plans of 10/01 and 10/02 marked all 54 symbols
+`INSUFFICIENT_HISTORY`. Stored daily snapshots hold 100 bars (one KIS `FHKST03010100` page), while
+momentum needs `max(lookback, trendMa) + 1 = 121`. Momentum has therefore sent no orders, and AI news
+screening has made no assessments (no candidates). Fixing this needs multi-page history collection and
+a separate approval.
