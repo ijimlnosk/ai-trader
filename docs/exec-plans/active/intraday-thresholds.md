@@ -50,6 +50,9 @@ Research first. Nothing here changes orders until a backtest supports it and the
 # Progress
 
 2026-10-06: plan created from the owner request.
+2026-10-06: R2/R3 daily-bar proxy done ([research](../../INTRADAY_THRESHOLDS_RESEARCH_2026-10-06.md)). Candidate:
+  take profit 30% (full) with a 5-session re-entry block; stop loss alone and dip buying not supported.
+  Minute-bar confirmation (R1/R2) still required before I1.
 
 # Validation
 
