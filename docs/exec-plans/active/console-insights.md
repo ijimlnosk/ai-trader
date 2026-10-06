@@ -16,7 +16,7 @@ collected, without querying the database. Read-only.
 - [x] Server: insight queries (momentum ranking, collection coverage, DART filings, take-profit signals),
       read repository, `GET /api/v1/me/console/insights`.
 - [x] Web: proxy route, query hook, "판단 근거" tab with four cards.
-- [ ] Tests, typecheck, lint, build; deploy server and web.
+- [x] Tests, typecheck, lint, build; deploy server and web (2026-10-06, `3470e4f`).
 
 # Decisions
 
@@ -28,3 +28,5 @@ checked read-only on production. ESLint now ignores the local `.agents/` skills 
 # Validation
 
 # Remaining Work
+
+Visual check of the tab in a browser (owner login required).

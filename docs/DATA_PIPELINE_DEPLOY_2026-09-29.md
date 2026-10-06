@@ -275,3 +275,16 @@ server`, healthy; key present in the container, live false.
 Manual run inside the container with the production collector, caps and quota: 37 calls scanned 3,668 filings of
 2026-09-29..10-06 and saved 93 for 43 universe symbols; an immediate repeat saved 0 (insert-only). Quota `opendart`
 74 of 300 for the day. No error-level log. First scheduled run: 2026-10-07 08:15 KST.
+
+## Console insights tab deployed (2026-10-06)
+
+Commit `3470e4f`. Evidence `/home/jinsol/ai-trader-backups/console-insights-20261006` (source, `.env`, Compose; update
+package SHA-256 `116aab81ad06…`); the nine replaced files matched `5eecf81`. No migration. Server and web images
+built; `up -d --no-deps` for server, then web; both healthy. `/api/v1/me/console/insights` and the web proxy return
+401 without a session; `/login` 200.
+
+The production query (run read-only inside the server container) returned the 20261006 momentum ranking (54 rows),
+daily coverage 54 symbols × 184 bars through 20261002, minute coverage 54 × 391 for 20261006, 40 recent filings and no
+take-profit signal. At KRW 500,000 (budget KRW 45,000 per position) 8 universe symbols are buyable (HMM, 우리금융지주,
+삼성중공업, 한국전력, 기업은행, HLB, 카카오, 카카오뱅크); none of today's top five is among them. The tab itself was not
+inspected in a browser.
