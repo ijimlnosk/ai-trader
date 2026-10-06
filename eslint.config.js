@@ -11,6 +11,6 @@ export default tseslint.config(
   // The web console reaches the server only through HTTP and shared contracts.
   { files: ['apps/web/**/*.ts', 'apps/web/**/*.tsx'], rules: { 'no-restricted-imports': restricted(['@ai-trader/*/src/**', '**/apps/*/src/**', '**/apps/server/**', '**/server/src/**', 'drizzle-orm', 'pg', 'fastify']) } },
   // Offline research scripts run under Node.
-  { files: ['research/**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly' } } },
+  { files: ['research/**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly', URLSearchParams: 'readonly', setTimeout: 'readonly' } } },
   { files: ['apps/server/src/application/**/*.ts'], rules: { 'no-restricted-imports': restricted(['fastify', 'drizzle-orm', 'drizzle-orm/*', 'pg', '**/infrastructure/**', '**/interfaces/**', '**/app/**']) } },
 );
