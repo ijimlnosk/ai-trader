@@ -2,6 +2,7 @@ import type { AuthService } from '../application/auth/index.ts';
 import type { MinuteBarRepository } from '../application/marketData/minuteBars.ts';
 import type { IntradaySignalRepository } from '../application/strategy/takeProfitWatch.ts';
 import type { DisclosureRepository } from '../application/disclosures/ports.ts';
+import type { InsightReadRepository } from '../application/console/insights.ts';
 import { createOpenDartSource } from '../infrastructure/disclosures/openDart.ts';
 import type { TradingControlRepository } from '../application/controls/index.ts';
 import type { ApiQuota, NewsRepository } from '../application/news/ports.ts';
@@ -30,7 +31,7 @@ export function createRuntimeApp(
   orderRepository?: OrderRepository, strategyRunRepository?: StrategyRunRepository, paperLoopRepository?: PaperLoopRepository,
   dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository, auth?: AuthService, executionAccount?: string, tradingControls?: TradingControlRepository,
   newsRepository?: NewsRepository, apiQuota?: ApiQuota, assessments?: AssessmentRepository, minuteBarRepository?: MinuteBarRepository,
-  intradaySignals?: IntradaySignalRepository, disclosures?: DisclosureRepository,
+  intradaySignals?: IntradaySignalRepository, disclosures?: DisclosureRepository, insightsRead?: InsightReadRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
@@ -62,6 +63,7 @@ export function createRuntimeApp(
     ...(minuteBarRepository ? { minuteBars: minuteBarRepository, minuteBarSource: broker } : {}),
     ...(intradaySignals ? { intradaySignals } : {}),
     ...(disclosures ? { disclosures } : {}),
+    ...(insightsRead ? { insightsRead } : {}),
     ...(environment.DART_API_KEY ? { disclosureSource: createOpenDartSource({ apiKey: environment.DART_API_KEY }) } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,

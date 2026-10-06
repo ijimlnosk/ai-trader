@@ -80,3 +80,22 @@ export interface ConsolePlanResponse {
   plans: ConsolePlan[];
   aiUsage: { model: string; dailyMicroUsd: number; monthlyMicroUsd: number; dailyCapMicroUsd: number; monthlyCapMicroUsd: number } | null;
 }
+
+/** Why momentum chose what it chose and what has been collected. Read-only; prices KRW, quantities shares. */
+export interface ConsoleInsightsResponse {
+  momentum: {
+    runKey: string; sessionDate: string;
+    /** Owner's planned live capital and the per-position budget it allows under the current allocation. */
+    smallAccount: { capitalKrw: string; budgetKrw: string };
+    rows: { rank: number | null; symbol: string; name: string; reason: string;
+      /** 120-session return in percent, rounded to 0.1. */
+      momentumPct: number | null; close: string | null; trendMa: string | null; heldQuantity: string;
+      proposedQuantity: string | null; affordableSmall: boolean }[];
+  } | null;
+  collection: {
+    daily: { through: string; symbols: number; minBars: number; maxBars: number }[];
+    minute: { sessionDate: string; symbols: number; minBars: number; maxBars: number }[];
+  };
+  disclosures: { receiptNo: string; symbol: string; name: string; receiptDate: string; reportName: string }[];
+  takeProfit: { symbol: string; name: string; sessionDate: string; averagePrice: string; price: string; gainBps: number; detectedAt: string }[];
+}

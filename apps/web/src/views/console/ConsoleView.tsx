@@ -12,9 +12,10 @@ import { StatusCard } from '@/entities/status/StatusCard';
 import { AutoTradingCard } from '@/features/autoTrading/AutoTradingCard';
 import { Tabs } from '@/shared/ui/Tabs';
 import { AppBar } from './AppBar';
+import { InsightsPanel } from './InsightsPanel';
 
 const TABS = [
-  { value: 'holdings', label: '보유' }, { value: 'orders', label: '주문' },
+  { value: 'holdings', label: '보유' }, { value: 'insights', label: '판단 근거' }, { value: 'orders', label: '주문' },
   { value: 'runs', label: '실행기록' }, { value: 'news', label: '뉴스' }, { value: 'data', label: '데이터' },
 ] as const;
 type Tab = (typeof TABS)[number]['value'];
@@ -35,7 +36,7 @@ export function ConsoleView({ email }: { email: string }) {
         </div>
         <div className="column">
           <Tabs value={tab} onChange={setTab} items={TABS}>
-            {(value) => value === 'holdings' ? <HoldingsList /> : value === 'orders' ? <OrdersList />
+            {(value) => value === 'holdings' ? <HoldingsList /> : value === 'insights' ? <InsightsPanel /> : value === 'orders' ? <OrdersList />
               : value === 'runs' ? <LoopRunsList /> : value === 'news' ? <NewsList /> : <SnapshotsList />}
           </Tabs>
         </div>

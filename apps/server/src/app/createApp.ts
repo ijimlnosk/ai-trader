@@ -31,6 +31,7 @@ import { registerMarketDataRoutes } from '../interfaces/http/marketData.ts';
 import { createDailySchedule } from '../application/paperLoop/dailySchedule.ts';
 import { startDailyScheduleTimer } from './dailyScheduleTimer.ts';
 import { createConsoleQueries, type ConsoleReadRepository } from '../application/console/index.ts';
+import { createInsightQuery, type InsightReadRepository } from '../application/console/insights.ts';
 import { registerConsoleRoutes } from '../interfaces/http/console.ts';
 import { createTradingControls, type TradingControlRepository } from '../application/controls/index.ts';
 import type { ApiQuota, NewsRepository, NewsSearch } from '../application/news/ports.ts';
@@ -57,7 +58,8 @@ export function createApp(
     dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string;
     tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
     newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource;
-    intradaySignals?: IntradaySignalRepository; disclosureSource?: DisclosureSource; disclosures?: DisclosureRepository },
+    intradaySignals?: IntradaySignalRepository; disclosureSource?: DisclosureSource; disclosures?: DisclosureRepository;
+    insightsRead?: InsightReadRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -121,7 +123,8 @@ export function createApp(
   const collectNews = dependencies.newsSearch && dependencies.newsRepository && dependencies.apiQuota ? createNewsCollector({
     search: dependencies.newsSearch, quota: dependencies.apiQuota, news: dependencies.newsRepository, caps: newsCaps,
     symbols: UNIVERSE.symbols }) : undefined;
-  registerUserConsole(app, { news, controls, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
+  const insights = dependencies.consoleRead && dependencies.insightsRead ? createInsightQuery(dependencies.consoleRead, dependencies.insightsRead) : undefined;
+  registerUserConsole(app, { news, controls, insights, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
     portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
     health: createHealthCheck(database, new PaperBroker()) });
   const universeDataset = snapshots ? createUniverseDatasetBuilder({ snapshots, symbols: universeSymbols(), label: UNIVERSE.version }) : undefined;

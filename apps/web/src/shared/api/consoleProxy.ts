@@ -10,6 +10,7 @@ const ROUTES = {
   controls: { path: '/api/v1/me/console/controls', list: false },
   news: { path: '/api/v1/me/console/news', list: true },
   plan: { path: '/api/v1/me/console/plan', list: false },
+  insights: { path: '/api/v1/me/console/insights', list: false },
 } as const;
 
 export interface ProxyEnvironment { apiUrl?: string | undefined; sessionToken?: string | undefined }

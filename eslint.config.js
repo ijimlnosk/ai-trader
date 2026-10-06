@@ -3,7 +3,7 @@ import tseslint from 'typescript-eslint';
 
 const restricted = (patterns) => ['error', { patterns }];
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', '**/drizzle/meta/**', '**/.next/**', '**/next-env.d.ts'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', '**/drizzle/meta/**', '**/.next/**', '**/next-env.d.ts', '.agents/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { files: ['**/*.ts', '**/*.tsx'], rules: { '@typescript-eslint/no-explicit-any': 'error', 'no-restricted-imports': restricted(['@ai-trader/*/src/**', '**/apps/*/src/**']) } },

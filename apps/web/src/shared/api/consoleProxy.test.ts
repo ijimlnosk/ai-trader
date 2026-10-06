@@ -15,7 +15,7 @@ describe('console proxy', () => {
   });
 
   it.each([[['status'], '/api/v1/me/console/status'], [['health'], '/api/v1/me/console/health'], [['portfolio'], '/api/v1/me/console/portfolio'],
-    [['broker-status'], '/api/v1/me/console/broker-status']])('maps %j to %s', async (segments, path) => {
+    [['broker-status'], '/api/v1/me/console/broker-status'], [['insights'], '/api/v1/me/console/insights']])('maps %j to %s', async (segments, path) => {
     const fetcher = ok({});
     await proxyConsoleRequest(segments, new URLSearchParams(), env, fetcher);
     expect((fetcher.mock.calls[0] as unknown as [string])[0]).toBe(`http://127.0.0.1:3200${path}`);

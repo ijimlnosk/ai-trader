@@ -5,6 +5,7 @@ import { AuthError, type SessionIdentity } from '../../application/auth/ports.ts
 import { ControlError, type TradingControls } from '../../application/controls/index.ts';
 import type { NewsQuery } from '../../application/news/query.ts';
 import type { ConsoleQueries } from '../../application/console/index.ts';
+import type { InsightQuery } from '../../application/console/insights.ts';
 import type { createHealthCheck } from '../../application/health.ts';
 import type { createMarket } from '../../application/market.ts';
 import type { createPortfolioQuery } from '../../application/portfolio.ts';
@@ -19,6 +20,7 @@ export function registerUserConsole(app: FastifyInstance, deps: {
   portfolio: ReturnType<typeof createPortfolioQuery>; market: ReturnType<typeof createMarket>; health: ReturnType<typeof createHealthCheck>;
   controls?: TradingControls | undefined;
   news?: NewsQuery | undefined;
+  insights?: InsightQuery | undefined;
 }) {
   app.register(async routes => {
     routes.addHook('onRequest', async (request, reply) => {
@@ -53,6 +55,7 @@ export function registerUserConsole(app: FastifyInstance, deps: {
       if (name === 'health') return deps.health();
       if (name === 'controls' && deps.controls) return deps.controls.status();
       if (name === 'plan') return deps.queries!.plan();
+      if (name === 'insights' && deps.insights) return deps.insights();
       return reply.code(404).send({ error: { code: 'not_found' } });
     });
     // Owner pause/resume of automatic paper trading only. Resume requires the password again.
