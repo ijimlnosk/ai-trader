@@ -37,6 +37,9 @@ const schema = z.object({
   MINUTE_BARS_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   // Records take-profit crossings of held positions during the session; never creates orders.
   INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  DART_API_KEY: optionalSecret,
+  // Archives OpenDART filings of universe symbols each session morning; data only.
+  DISCLOSURE_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   ANTHROPIC_API_KEY: optionalSecret,
   // AI news screening of momentum candidates; record-only until enforcement is separately approved.
   NEWS_ANALYSIS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
@@ -52,6 +55,9 @@ const schema = z.object({
   // A read token must not double as the order token, so leaking it cannot authorize orders.
   if (value.CONSOLE_READ_TOKEN && (value.CONSOLE_READ_TOKEN.length < 32 || value.CONSOLE_READ_TOKEN === value.ORDER_API_TOKEN)) {
     ctx.addIssue({ code: 'custom', path: ['CONSOLE_READ_TOKEN'], message: 'At least 32 characters and distinct from ORDER_API_TOKEN' });
+  }
+  if (value.DISCLOSURE_SCHEDULE_ENABLED && !value.DART_API_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['DISCLOSURE_SCHEDULE_ENABLED'], message: 'DART_API_KEY required' });
   }
   if (value.NEWS_SCHEDULE_ENABLED && (!value.NAVER_CLIENT_ID || !value.NAVER_CLIENT_SECRET)) {
     ctx.addIssue({ code: 'custom', path: ['NEWS_SCHEDULE_ENABLED'], message: 'Naver credentials required' });

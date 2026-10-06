@@ -79,3 +79,8 @@ it('keeps the take-profit dry run off by default and enables it only explicitly'
     .toMatchObject({ INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: true, PAPER_ORDER_EXECUTION_ENABLED: false, LIVE_TRADING_ENABLED: false });
   expect(() => parseEnvironment({ ...base, INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: 'yes' })).toThrow('INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED');
 });
+it('requires a DART key for the disclosure schedule and keeps it off by default', () => {
+  expect(parseEnvironment(base).DISCLOSURE_SCHEDULE_ENABLED).toBe(false);
+  expect(() => parseEnvironment({ ...base, DISCLOSURE_SCHEDULE_ENABLED: 'true' })).toThrow('DISCLOSURE_SCHEDULE_ENABLED');
+  expect(parseEnvironment({ ...base, DISCLOSURE_SCHEDULE_ENABLED: 'true', DART_API_KEY: 'k' })).toMatchObject({ DISCLOSURE_SCHEDULE_ENABLED: true });
+});

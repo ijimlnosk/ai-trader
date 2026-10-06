@@ -58,7 +58,7 @@ Phase C3 — news and disclosures (analysis only)
 # Decisions pending (owner)
 
 - Universe: size and membership (recommend ~50 by liquidity, reviewed monthly).
-- External keys: DART, news API, Anthropic — owner registers and places them in server `.env`.
+- External keys: DART (issued 2026-10-06; archive per decision 0019), news API, Anthropic — owner places them in server `.env`.
 - Whether AI may ever up-rank (not only veto) — recommend veto-only initially.
 
 # Validation

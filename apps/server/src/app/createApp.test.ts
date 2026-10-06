@@ -39,3 +39,7 @@ it('refuses the take-profit dry run without its signal repository and starts wit
     undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, { record: async () => true });
   await app.close();
 });
+it('refuses the disclosure schedule without its repository', () => {
+  expect(() => createRuntimeApp({ ...environment, DISCLOSURE_SCHEDULE_ENABLED: true, DART_API_KEY: 'k' }, { checkConnection: async () => {} }, false))
+    .toThrow('Disclosure schedule dependencies required');
+});

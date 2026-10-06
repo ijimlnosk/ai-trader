@@ -47,6 +47,9 @@ import type { NewsAssessor } from '../application/analysis/ports.ts';
 import { createMinuteBarCollector, type MinuteBarRepository, type MinuteBarSource } from '../application/marketData/minuteBars.ts';
 import { createMinuteBarSchedule } from '../application/marketData/minuteSchedule.ts';
 import { createTakeProfitWatch, type IntradaySignalRepository } from '../application/strategy/takeProfitWatch.ts';
+import { createDisclosureCollector } from '../application/disclosures/collect.ts';
+import type { DisclosureRepository, DisclosureSource } from '../application/disclosures/ports.ts';
+import { createDisclosureSchedule } from '../application/disclosures/schedule.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -54,7 +57,7 @@ export function createApp(
     dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string;
     tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
     newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource;
-    intradaySignals?: IntradaySignalRepository },
+    intradaySignals?: IntradaySignalRepository; disclosureSource?: DisclosureSource; disclosures?: DisclosureRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -159,6 +162,16 @@ export function createApp(
       symbols: universeSymbols(), report: (event, detail) => app.log.info({ event, ...detail }, 'Minute bar schedule') });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Minute bar schedule'), 60000); });
+    app.addHook('preClose', async () => { await stop?.(); });
+  }
+  if (environment.DISCLOSURE_SCHEDULE_ENABLED) {
+    if (!dependencies.disclosureSource || !dependencies.disclosures || !dependencies.apiQuota) throw new Error('Disclosure schedule dependencies required');
+    // Self-imposed cap far below OpenDART's 20,000 calls/day; one run is about 40 pages.
+    const collectDisclosures = createDisclosureCollector({ source: dependencies.disclosureSource, quota: dependencies.apiQuota,
+      caps: { daily: 300, monthly: 6000 }, repository: dependencies.disclosures, symbols: universeSymbols() });
+    const step = createDisclosureSchedule({ collect: collectDisclosures, report: (event, detail) => app.log.info({ event, ...detail }, 'Disclosure schedule') });
+    let stop: (() => Promise<void>) | undefined;
+    app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Disclosure schedule'), 60000); });
     app.addHook('preClose', async () => { await stop?.(); });
   }
   if (environment.INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED) {
