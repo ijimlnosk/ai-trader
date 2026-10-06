@@ -263,3 +263,15 @@ The mid-session restart replayed the day: `session_plan_saved` twice (still 2 ru
 `momentum_execution_done` with no new order, `news_screen_done` with no new assessment (still 3). No
 `take_profit_watch_failed` or error-level log in the first 8 minutes. The watch logs only crossings and
 failures, so a quiet log is the expected state while no holding is 30% up.
+
+## DART disclosure archive enabled (2026-10-06 15:57 KST)
+
+Commit `5eecf81` (decision 0019, migration 0013). Evidence `/home/jinsol/ai-trader-backups/dart-disclosures-20261006`
+(source, `.env`, Compose, DB dump; update package SHA-256 `6a99bb3c35dd…`); the six modified files matched `ca2ade7`.
+The owner added `DART_API_KEY` (copied from the local `.env` without display) and `DISCLOSURE_SCHEDULE_ENABLED=true`
+to the server `.env`, and the two Compose passthrough lines. Image built, migration 0013 applied, `up -d --no-deps
+server`, healthy; key present in the container, live false.
+
+Manual run inside the container with the production collector, caps and quota: 37 calls scanned 3,668 filings of
+2026-09-29..10-06 and saved 93 for 43 universe symbols; an immediate repeat saved 0 (insert-only). Quota `opendart`
+74 of 300 for the day. No error-level log. First scheduled run: 2026-10-07 08:15 KST.
