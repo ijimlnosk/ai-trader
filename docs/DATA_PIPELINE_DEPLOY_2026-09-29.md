@@ -250,3 +250,16 @@ calls per symbol), and the 09:05 momentum plan evaluates instead of `INSUFFICIEN
   About 24% of equity invested.
 - AI news screening recorded its first assessments (claude-opus-5-5): 066570 clear, 034730 caution,
   018260 clear. Record-only, so the caution did not block the order.
+
+## Take-profit dry run enabled (2026-10-06 10:44 KST)
+
+Commit `ca2ade7` (decision 0018, migration 0012). Evidence `/home/jinsol/ai-trader-backups/take-profit-dry-run-20261006`
+(source, `.env`, Compose, DB dump; update package SHA-256 `5a49efa14af4…`); the six modified files matched
+`fd2b880` on the server. Server Compose gained the `INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED` passthrough and `.env`
+sets it to `true` (applied by the owner). Image built, migration 0012 applied (`intraday_signals` empty),
+`up -d --no-deps server`, healthy; execution true, live false.
+
+The mid-session restart replayed the day: `session_plan_saved` twice (still 2 runs for 20261006),
+`momentum_execution_done` with no new order, `news_screen_done` with no new assessment (still 3). No
+`take_profit_watch_failed` or error-level log in the first 8 minutes. The watch logs only crossings and
+failures, so a quiet log is the expected state while no holding is 30% up.
