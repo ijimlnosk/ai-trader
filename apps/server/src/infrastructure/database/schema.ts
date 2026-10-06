@@ -287,3 +287,18 @@ export const marketMinuteBars = pgTable('market_minute_bars', {
   retrievedAt: instant('retrieved_at').notNull(),
   createdAt: instant('created_at').notNull().defaultNow(),
 }, (t) => [primaryKey({ columns: [t.symbol, t.sessionDate] })]);
+
+// Order-free dry-run signals of intraday rules; insert-only evidence for the owner's review.
+export const intradaySignals = pgTable('intraday_signals', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  symbol: text('symbol').notNull(),
+  sessionDate: text('session_date').notNull(),
+  rule: text('rule').notNull(),
+  averagePrice: money('average_price').notNull(),
+  price: money('price').notNull(),
+  quantity: quantity('quantity').notNull(),
+  gainBps: integer('gain_bps').notNull(),
+  quoteAt: instant('quote_at').notNull(),
+  detectedAt: instant('detected_at').notNull(),
+}, (t) => [uniqueIndex('intraday_signals_symbol_session_rule_idx').on(t.symbol, t.sessionDate, t.rule),
+  check('intraday_signals_rule', sql`${t.rule} IN ('TAKE_PROFIT_30')`)]);

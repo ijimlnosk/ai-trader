@@ -35,6 +35,8 @@ const schema = z.object({
   UNIVERSE_PLAN_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   MOMENTUM_EXECUTION_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   MINUTE_BARS_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  // Records take-profit crossings of held positions during the session; never creates orders.
+  INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   ANTHROPIC_API_KEY: optionalSecret,
   // AI news screening of momentum candidates; record-only until enforcement is separately approved.
   NEWS_ANALYSIS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),

@@ -15,6 +15,7 @@ import { createStrategyRunRepository } from '../infrastructure/database/strategy
 import { createDailySnapshotRepository } from '../infrastructure/database/dailySnapshotRepository.ts';
 import { createConsoleReadRepository } from '../infrastructure/database/consoleReadRepository.ts';
 import { createMinuteBarRepository } from '../infrastructure/database/minuteBarRepository.ts';
+import { createIntradaySignalRepository } from '../infrastructure/database/intradaySignalRepository.ts';
 
 async function start() {
   const environment = parseEnvironment(process.env);
@@ -24,7 +25,7 @@ async function start() {
   const app = createRuntimeApp(environment, database, true, undefined, undefined, createOrderRepository(database.db, executionAccount), createStrategyRunRepository(database.db, executionAccount), createPaperLoopRepository(database.db, executionAccount),
     createDailySnapshotRepository(database.db), createConsoleReadRepository(database.db, executionAccount), createAuth(createAuthRepository(database.db), passwordVerifier), executionAccount,
     createTradingControlRepository(database.db), createNewsRepository(database.db), createApiQuotaRepository(database.db),
-    createAssessmentRepository(database.db), createMinuteBarRepository(database.db));
+    createAssessmentRepository(database.db), createMinuteBarRepository(database.db), createIntradaySignalRepository(database.db));
   app.addHook('onClose', () => database.close());
   let stopping = false;
   const shutdown = async () => {

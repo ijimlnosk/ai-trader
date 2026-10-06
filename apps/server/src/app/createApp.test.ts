@@ -32,3 +32,10 @@ it('refuses a daily schedule without its persistence dependencies', () => {
   expect(() => createRuntimeApp({ ...environment, MARKET_DATA_SCHEDULE_ENABLED: true }, { checkConnection: async () => {} }, false))
     .toThrow('Daily schedule dependencies required');
 });
+it('refuses the take-profit dry run without its signal repository and starts with it', async () => {
+  const enabled = { ...environment, INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: true };
+  expect(() => createRuntimeApp(enabled, { checkConnection: async () => {} }, false)).toThrow('Intraday signal repository required');
+  const app = createRuntimeApp(enabled, { checkConnection: async () => {} }, false, undefined, undefined, undefined, undefined, undefined,
+    undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, { record: async () => true });
+  await app.close();
+});

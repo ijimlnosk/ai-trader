@@ -85,6 +85,13 @@
       "when": 1790819853490,
       "tag": "0011_market_minute_bars",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791250033801,
+      "tag": "0012_intraday_signals",
+      "breakpoints": true
     }
   ]
 }

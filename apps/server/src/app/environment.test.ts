@@ -73,3 +73,9 @@ it('AI news analysis needs a key and the plan schedule, and budgets cannot excee
     expect(() => parseEnvironment({ ...base, [key!]: value })).toThrow(key!);
   }
 });
+it('keeps the take-profit dry run off by default and enables it only explicitly', () => {
+  expect(parseEnvironment(base).INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED).toBe(false);
+  expect(parseEnvironment({ ...base, INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: 'true' }))
+    .toMatchObject({ INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: true, PAPER_ORDER_EXECUTION_ENABLED: false, LIVE_TRADING_ENABLED: false });
+  expect(() => parseEnvironment({ ...base, INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: 'yes' })).toThrow('INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED');
+});

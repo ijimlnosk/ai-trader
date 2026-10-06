@@ -46,13 +46,15 @@ import { seoulOrderDate } from '../domain/orders.ts';
 import type { NewsAssessor } from '../application/analysis/ports.ts';
 import { createMinuteBarCollector, type MinuteBarRepository, type MinuteBarSource } from '../application/marketData/minuteBars.ts';
 import { createMinuteBarSchedule } from '../application/marketData/minuteSchedule.ts';
+import { createTakeProfitWatch, type IntradaySignalRepository } from '../application/strategy/takeProfitWatch.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
   dependencies: { marketBroker: MarketBroker; accountBroker: AccountBroker; riskContextProvider: RiskContextProvider; orders?: OrderServices | undefined; strategyRuns?: StrategyRunRepository; paperLoopRuns?: PaperLoopRepository;
     dailyHistory?: DailyHistorySource; dailySnapshots?: DailySnapshotRepository; consoleRead?: ConsoleReadRepository; auth?: AuthService; executionAccount?: string;
     tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
-    newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource },
+    newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource;
+    intradaySignals?: IntradaySignalRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -157,6 +159,14 @@ export function createApp(
       symbols: universeSymbols(), report: (event, detail) => app.log.info({ event, ...detail }, 'Minute bar schedule') });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Minute bar schedule'), 60000); });
+    app.addHook('preClose', async () => { await stop?.(); });
+  }
+  if (environment.INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED) {
+    if (!dependencies.intradaySignals) throw new Error('Intraday signal repository required');
+    const step = createTakeProfitWatch({ account: dependencies.accountBroker, market: dependencies.marketBroker, signals: dependencies.intradaySignals,
+      report: (event, detail) => app.log.info({ event, ...detail }, 'Take profit watch') });
+    let stop: (() => Promise<void>) | undefined;
+    app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Take profit watch'), 60000); });
     app.addHook('preClose', async () => { await stop?.(); });
   }
   if (environment.PAPER_LOOP_ENABLED && environment.PAPER_LOOP_TASK_FILE) {
