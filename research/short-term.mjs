@@ -79,4 +79,10 @@ rows.sort((a, b) => score(b.in) - score(a.in));
 const view = (r) => ({ name: r.name, params: r.params, sizing: r.sizing, in: fmt(r.in), out: fmt(r.out) });
 console.log(JSON.stringify({ windows: { in: [S[warm], S[split - 1]], out: [S[split], S[T - 1]] }, symbols: series.length, excluded: [...excluded], slipBp: SLIP * 10000,
   top10ByInSample: rows.slice(0, 10).map(view), outMedianRet: +rows.map((r) => r.out.ret).sort((a, b) => a - b)[Math.floor(rows.length / 2)].toFixed(3),
-  outPositiveShare: +(rows.filter((r) => r.out.ret > 0).length / rows.length).toFixed(2) }, null, 1));
+  outPositiveShare: +(rows.filter((r) => r.out.ret > 0).length / rows.length).toFixed(2),
+  byFamily: Object.fromEntries(Object.keys(strategies).map((name) => {
+    const family = rows.filter((r) => r.name === name); const out = family.map((r) => r.out.ret).sort((a, b) => a - b);
+    const ins = family.map((r) => r.in.ret).sort((a, b) => a - b);
+    return [name, { configs: family.length, bestInSample: view(family[0]), inMedianRet: +ins[Math.floor(ins.length / 2)].toFixed(3), outMedianRet: +out[Math.floor(out.length / 2)].toFixed(3),
+      outPositiveShare: +(out.filter((x) => x > 0).length / out.length).toFixed(2) }];
+  })) }, null, 1));
