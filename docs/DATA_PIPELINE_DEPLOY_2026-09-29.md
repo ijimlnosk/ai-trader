@@ -237,3 +237,16 @@ Expected on 2026-10-06: the 08:00 collection archives about 184 bars for each un
 calls per symbol), and the 09:05 momentum plan evaluates instead of `INSUFFICIENT_HISTORY`. With
 `MOMENTUM_EXECUTION_ENABLED=true`, approved entries are sent as paper orders through the Risk Engine
 (at most 5 positions, 9% allocation each); AI news screening records assessments for the candidates.
+
+## First momentum session with full history (2026-10-06)
+
+- 08:00 KST: all 54 universe snapshots through 20261002 collected and confirmed (up to 184 bars).
+- 09:05 KST: `plan-momentum-20261006-ba75b9c33b40` evaluated all 54 symbols; no `INSUFFICIENT_HISTORY`.
+  Entries: 066570 (rank 1), 034730 (rank 3), 018260 (rank 4). Ranks 0 (009150, close 1,581,000) and 2
+  (000660, close 1,841,000) were `SIZE_UNAVAILABLE`: one share exceeds the 9% allocation of equity
+  (KRW 10,017,291 → about 901,556). With this account size such symbols will keep being skipped.
+- Paper orders, all risk-approved and filled: 066570 BUY 4 (KRW 919,000), 034730 BUY 1 (579,000),
+  018260 BUY 4 (880,000; first `SUBMITTED` with no fill, filled on reconciliation about 30 s later).
+  About 24% of equity invested.
+- AI news screening recorded its first assessments (claude-opus-5-5): 066570 clear, 034730 caution,
+  018260 clear. Record-only, so the caution did not block the order.
