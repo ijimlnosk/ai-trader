@@ -13,19 +13,29 @@ function setup(prices: Record<string, string>, positions: Position[], now = at('
   const report = vi.fn();
   const getQuote = vi.fn(async (symbol: string) => ({ symbol, price: prices[symbol]!, change: '0', changeRate: '0', volume: '0', timestamp: quoteAt }));
   const watch = createTakeProfitWatch({ account: { getPortfolio: async () => portfolio(...positions) }, market: { getQuote }, report, now,
-    signals: { record: async (signal) => { if (saved.some((s) => s.symbol === signal.symbol)) return false; saved.push(signal); return true; } } });
+    signals: { record: async (signal) => { if (saved.some((s) => s.symbol === signal.symbol && s.rule === signal.rule)) return false; saved.push(signal); return true; } } });
   return { watch, saved, report, getQuote };
 }
 
 describe('take profit watch (dry run)', () => {
-  it('records each crossing once per session and never more', async () => {
+  it('records each threshold crossing once per session and never more', async () => {
     const { watch, saved, report, getQuote } = setup({ '066570': '298675', '034730': '600000' }, [position('066570', '229750'), position('034730', '579000', '1')]);
     await watch();
     await watch();
-    expect(saved).toEqual([{ symbol: '066570', sessionDate: '20261006', rule: 'TAKE_PROFIT_30', averagePrice: '229750', price: '298675',
-      quantity: '4', gainBps: 3000, quoteAt: '2026-10-06T00:59:58.000Z', detectedAt: '2026-10-06T01:00:00.000Z' }]);
-    expect(report).toHaveBeenCalledTimes(1);
+    expect(saved.map((s) => s.rule)).toEqual(['TAKE_PROFIT_5', 'TAKE_PROFIT_10', 'TAKE_PROFIT_30']);
+    expect(saved[2]).toEqual({ symbol: '066570', sessionDate: '20261006', rule: 'TAKE_PROFIT_30', averagePrice: '229750', price: '298675',
+      quantity: '4', gainBps: 3000, quoteAt: '2026-10-06T00:59:58.000Z', detectedAt: '2026-10-06T01:00:00.000Z' });
+    expect(report).toHaveBeenCalledTimes(3);
     expect(getQuote.mock.calls.map(([symbol]) => symbol)).toEqual(['066570', '034730', '034730']);
+  });
+
+  it('records +5% only once a holding is 5% up, and +10% later in the session', async () => {
+    const prices: Record<string, string> = { '010950': '172389' };
+    const { watch, saved } = setup(prices, [position('010950', '164180')]);
+    await watch();
+    expect(saved.map((s) => [s.rule, s.gainBps])).toEqual([['TAKE_PROFIT_5', 500]]);
+    prices['010950'] = '180598'; await watch();
+    expect(saved.map((s) => s.rule)).toEqual(['TAKE_PROFIT_5', 'TAKE_PROFIT_10']);
   });
 
   it.each([
@@ -54,6 +64,6 @@ describe('take profit watch (dry run)', () => {
     await watch();
     expect(report).toHaveBeenCalledWith('take_profit_watch_failed', { stage: 'quote', symbol: '066570' });
     await watch();
-    expect(saved).toHaveLength(1);
+    expect(saved).toHaveLength(3);
   });
 });

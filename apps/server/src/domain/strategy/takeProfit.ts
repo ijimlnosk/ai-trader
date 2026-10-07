@@ -6,6 +6,10 @@ import { parseRiskDecimal } from '../risk/decimal.ts';
  */
 export const TAKE_PROFIT_BPS = 3000n;
 
+/** Thresholds recorded side by side for comparison (owner request 2026-10-07): +5%, +10% and the +30% candidate. */
+export const TAKE_PROFIT_RULES = [['TAKE_PROFIT_5', 500n], ['TAKE_PROFIT_10', 1000n], ['TAKE_PROFIT_30', TAKE_PROFIT_BPS]] as const;
+export type TakeProfitRule = (typeof TAKE_PROFIT_RULES)[number][0];
+
 /** Gain of `price` over `averagePrice` in basis points (floored), or null unless both are positive decimals. */
 export function gainBps(averagePrice: string, price: string): bigint | null {
   const average = parseRiskDecimal(averagePrice);

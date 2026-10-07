@@ -15,5 +15,8 @@ Before any order depends on it, the rule is observed live without trading.
 - It creates no proposal or order, and does not apply the re-entry block. Failed or stale reads are skipped
   and retried on the next step. About one KIS quote call per held position per minute (at most 5).
 
+2026-10-07 (owner request): +5% and +10% are recorded next to +30% (`TAKE_PROFIT_5`, `TAKE_PROFIT_10`; migration 0015),
+one record per symbol, session and threshold, so the thresholds can be compared on the same holdings.
+
 Enabling real take-profit orders, and the momentum re-entry block, need the minute-bar confirmation and a
 separate decision.

@@ -301,7 +301,7 @@ export const intradaySignals = pgTable('intraday_signals', {
   quoteAt: instant('quote_at').notNull(),
   detectedAt: instant('detected_at').notNull(),
 }, (t) => [uniqueIndex('intraday_signals_symbol_session_rule_idx').on(t.symbol, t.sessionDate, t.rule),
-  check('intraday_signals_rule', sql`${t.rule} IN ('TAKE_PROFIT_30')`)]);
+  check('intraday_signals_rule', sql`${t.rule} IN ('TAKE_PROFIT_5','TAKE_PROFIT_10','TAKE_PROFIT_30')`)]);
 
 // OpenDART filings of universe symbols; insert-only by receipt number. Data only until a filter is approved.
 export const dartDisclosures = pgTable('dart_disclosures', {

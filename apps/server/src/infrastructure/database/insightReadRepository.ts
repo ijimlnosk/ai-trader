@@ -27,7 +27,7 @@ export function createInsightReadRepository(db: Database): InsightReadRepository
     },
     async recentTakeProfit(limit) {
       const rows = await db.select().from(intradaySignals).orderBy(desc(intradaySignals.detectedAt)).limit(limit);
-      return rows.map((row) => ({ symbol: row.symbol, sessionDate: row.sessionDate, averagePrice: row.averagePrice, price: row.price,
+      return rows.map((row) => ({ symbol: row.symbol, sessionDate: row.sessionDate, rule: row.rule, averagePrice: row.averagePrice, price: row.price,
         gainBps: row.gainBps, detectedAt: row.detectedAt.toISOString() }));
     },
   };

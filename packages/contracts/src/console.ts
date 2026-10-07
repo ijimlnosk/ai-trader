@@ -97,7 +97,8 @@ export interface ConsoleInsightsResponse {
     minute: { sessionDate: string; symbols: number; minBars: number; maxBars: number }[];
   };
   disclosures: { receiptNo: string; symbol: string; name: string; receiptDate: string; reportName: string }[];
-  takeProfit: { symbol: string; name: string; sessionDate: string; averagePrice: string; price: string; gainBps: number; detectedAt: string }[];
+  /** Dry-run threshold crossings; rule is TAKE_PROFIT_5, TAKE_PROFIT_10 or TAKE_PROFIT_30. */
+  takeProfit: { symbol: string; name: string; sessionDate: string; rule: string; averagePrice: string; price: string; gainBps: number; detectedAt: string }[];
   /** Virtual (order-free) intraday trading; KRW amounts include fees, holdings at cost. */
   shadow: {
     strategy: string; capitalKrw: string; cashKrw: string; realizedKrw: string;

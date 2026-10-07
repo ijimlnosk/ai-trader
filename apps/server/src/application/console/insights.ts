@@ -16,7 +16,7 @@ export interface InsightReadRepository {
   dailyCoverage(sessions: number): Promise<Collection['daily']>;
   minuteCoverage(sessions: number): Promise<Collection['minute']>;
   recentDisclosures(limit: number): Promise<{ receiptNo: string; symbol: string; receiptDate: string; reportName: string }[]>;
-  recentTakeProfit(limit: number): Promise<{ symbol: string; sessionDate: string; averagePrice: string; price: string; gainBps: number; detectedAt: string }[]>;
+  recentTakeProfit(limit: number): Promise<{ symbol: string; sessionDate: string; rule: string; averagePrice: string; price: string; gainBps: number; detectedAt: string }[]>;
 }
 
 /** Owner's planned live capital (2026-10-06). Display only: it changes no sizing or risk rule. */

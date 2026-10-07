@@ -1,0 +1,2 @@
+ALTER TABLE "intraday_signals" DROP CONSTRAINT "intraday_signals_rule";--> statement-breakpoint
+ALTER TABLE "intraday_signals" ADD CONSTRAINT "intraday_signals_rule" CHECK ("intraday_signals"."rule" IN ('TAKE_PROFIT_5','TAKE_PROFIT_10','TAKE_PROFIT_30'));
