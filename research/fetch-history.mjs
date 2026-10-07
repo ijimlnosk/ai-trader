@@ -33,6 +33,13 @@ for (const [index, [code]] of SYMBOLS.entries()) {
   bySymbol.set(code, [...rows.values()].sort((a, b) => a.date.localeCompare(b.date)));
   if (index % 20 === 0) process.stderr.write(`${index}/${SYMBOLS.length}\n`);
 }
+// RAW=1 keeps every symbol with its own dates (point-in-time research handles listings and gaps itself).
+if (env.RAW === '1') {
+  process.stdout.write(JSON.stringify({ source: `KIS FHKST03010100 J raw retrieved ${new Date().toISOString()}`, timezone: 'Asia/Seoul', priceBasis: 'raw',
+    series: [...bySymbol].map(([symbol, candles]) => ({ symbol, candles })) }));
+  process.stderr.write(JSON.stringify({ symbols: bySymbol.size, errors }) + '\n');
+  process.exit(0);
+}
 const counts = new Map();
 for (const candles of bySymbol.values()) { const key = candles.map((c) => c.date).join(); counts.set(key, (counts.get(key) ?? 0) + 1); }
 const sessions = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0].split(',');
