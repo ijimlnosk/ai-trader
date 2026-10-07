@@ -3,6 +3,7 @@ import type { MinuteBarRepository } from '../application/marketData/minuteBars.t
 import type { IntradaySignalRepository } from '../application/strategy/takeProfitWatch.ts';
 import type { DisclosureRepository } from '../application/disclosures/ports.ts';
 import type { InsightReadRepository } from '../application/console/insights.ts';
+import type { ShadowTradeRepository } from '../application/strategy/shadowDayTrader.ts';
 import { createOpenDartSource } from '../infrastructure/disclosures/openDart.ts';
 import type { TradingControlRepository } from '../application/controls/index.ts';
 import type { ApiQuota, NewsRepository } from '../application/news/ports.ts';
@@ -32,6 +33,7 @@ export function createRuntimeApp(
   dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository, auth?: AuthService, executionAccount?: string, tradingControls?: TradingControlRepository,
   newsRepository?: NewsRepository, apiQuota?: ApiQuota, assessments?: AssessmentRepository, minuteBarRepository?: MinuteBarRepository,
   intradaySignals?: IntradaySignalRepository, disclosures?: DisclosureRepository, insightsRead?: InsightReadRepository,
+  shadowTrades?: ShadowTradeRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
@@ -64,6 +66,10 @@ export function createRuntimeApp(
     ...(intradaySignals ? { intradaySignals } : {}),
     ...(disclosures ? { disclosures } : {}),
     ...(insightsRead ? { insightsRead } : {}),
+    // Separate KIS session (quotes only, own pacing) so virtual trading never queues production calls.
+    ...(shadowTrades ? { shadowTrades } : {}),
+    ...(environment.SHADOW_DAY_TRADING_ENABLED && shadowTrades ? { shadowMarket: createKisBroker({ baseUrl: environment.KIS_BASE_URL,
+      appKey: environment.KIS_APP_KEY, appSecret: environment.KIS_APP_SECRET }, undefined, Date.now, (event) => app.log.warn(event, 'KIS API request rejected (shadow)'), 1500) } : {}),
     ...(environment.DART_API_KEY ? { disclosureSource: createOpenDartSource({ apiKey: environment.DART_API_KEY }) } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,

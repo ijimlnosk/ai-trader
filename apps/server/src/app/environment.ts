@@ -38,6 +38,8 @@ const schema = z.object({
   // Records take-profit crossings of held positions during the session; never creates orders.
   INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   DART_API_KEY: optionalSecret,
+  // Virtual (order-free) intraday trading of the low-price universe on live quotes, KRW 500,000 ledger.
+  SHADOW_DAY_TRADING_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   // Archives OpenDART filings of universe symbols each session morning; data only.
   DISCLOSURE_SCHEDULE_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   ANTHROPIC_API_KEY: optionalSecret,

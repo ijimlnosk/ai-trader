@@ -51,6 +51,8 @@ import { createTakeProfitWatch, type IntradaySignalRepository } from '../applica
 import { createDisclosureCollector } from '../application/disclosures/collect.ts';
 import type { DisclosureRepository, DisclosureSource } from '../application/disclosures/ports.ts';
 import { createDisclosureSchedule } from '../application/disclosures/schedule.ts';
+import { createShadowDayTrader, type ShadowTradeRepository } from '../application/strategy/shadowDayTrader.ts';
+import { lowPriceSymbols } from '../domain/market/lowPriceUniverse.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -59,7 +61,7 @@ export function createApp(
     tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
     newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource;
     intradaySignals?: IntradaySignalRepository; disclosureSource?: DisclosureSource; disclosures?: DisclosureRepository;
-    insightsRead?: InsightReadRepository },
+    insightsRead?: InsightReadRepository; shadowMarket?: MarketBroker; shadowTrades?: ShadowTradeRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -123,7 +125,7 @@ export function createApp(
   const collectNews = dependencies.newsSearch && dependencies.newsRepository && dependencies.apiQuota ? createNewsCollector({
     search: dependencies.newsSearch, quota: dependencies.apiQuota, news: dependencies.newsRepository, caps: newsCaps,
     symbols: UNIVERSE.symbols }) : undefined;
-  const insights = dependencies.consoleRead && dependencies.insightsRead ? createInsightQuery(dependencies.consoleRead, dependencies.insightsRead) : undefined;
+  const insights = dependencies.consoleRead && dependencies.insightsRead ? createInsightQuery(dependencies.consoleRead, dependencies.insightsRead, dependencies.shadowTrades) : undefined;
   registerUserConsole(app, { news, controls, insights, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
     portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
     health: createHealthCheck(database, new PaperBroker()) });
@@ -162,9 +164,18 @@ export function createApp(
   if (environment.MINUTE_BARS_SCHEDULE_ENABLED) {
     if (!dependencies.minuteBars || !dependencies.minuteBarSource) throw new Error('Minute bar schedule dependencies required');
     const step = createMinuteBarSchedule({ collect: createMinuteBarCollector({ source: dependencies.minuteBarSource, repository: dependencies.minuteBars }),
-      symbols: universeSymbols(), report: (event, detail) => app.log.info({ event, ...detail }, 'Minute bar schedule') });
+      // Low-price names feed the intraday (shadow day-trading) research.
+      symbols: [...new Set([...universeSymbols(), ...lowPriceSymbols()])], report: (event, detail) => app.log.info({ event, ...detail }, 'Minute bar schedule') });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Minute bar schedule'), 60000); });
+    app.addHook('preClose', async () => { await stop?.(); });
+  }
+  if (environment.SHADOW_DAY_TRADING_ENABLED) {
+    if (!dependencies.shadowMarket || !dependencies.shadowTrades) throw new Error('Shadow day-trading dependencies required');
+    const step = createShadowDayTrader({ market: dependencies.shadowMarket, trades: dependencies.shadowTrades, symbols: lowPriceSymbols(),
+      report: (event, detail) => app.log.info({ event, ...detail }, 'Shadow day trading') });
+    let stop: (() => Promise<void>) | undefined;
+    app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Shadow day trading'), 60000); });
     app.addHook('preClose', async () => { await stop?.(); });
   }
   if (environment.DISCLOSURE_SCHEDULE_ENABLED) {

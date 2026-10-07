@@ -30,3 +30,17 @@ describe('console insights', () => {
     expect((await createInsightQuery({ latestPlanRun: async () => null }, repository)()).momentum).toBeNull();
   });
 });
+
+describe('console insights: virtual day trading', () => {
+  it('reports cash, realized results per day and holdings from the virtual fills', async () => {
+    const fill = (side: 'BUY' | 'SELL', quantity: bigint, fillPrice: bigint, feesKrw: bigint, sessionDate: string) =>
+      ({ sessionDate, symbol: '047040', side, quantity, quotePrice: fillPrice, fillPrice, feesKrw, reason: side === 'BUY' ? 'ENTRY' : 'TARGET', createdAt: `${sessionDate}T00:00:00.000Z` });
+    const trades = [fill('BUY', 10n, 17000n, 34n, '20261008'), fill('SELL', 10n, 17850n, 397n, '20261008'), fill('BUY', 5n, 17500n, 18n, '20261009')];
+    const shadow = (await createInsightQuery({ latestPlanRun: async () => null }, repository, { list: async () => trades, record: async () => {} })()).shadow!;
+    expect(shadow.realizedKrw).toBe(String(178_500 - 397 - 170_034));
+    expect(shadow.cashKrw).toBe(String(500_000 - 170_034 + 178_103 - 87_518));
+    expect(shadow.holdings).toEqual([{ symbol: '047040', name: '대우건설', quantity: '5', costKrw: '87518', entryPrice: '17500' }]);
+    expect(shadow.days.map((d) => d.sessionDate)).toEqual(['20261009', '20261008']);
+    expect(shadow.recent[0]).toMatchObject({ side: 'BUY', name: '대우건설', sessionDate: '20261009' });
+  });
+});

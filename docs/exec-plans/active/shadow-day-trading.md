@@ -14,11 +14,11 @@ Start as a virtual (order-free) run on live quotes and accumulate data; change r
 
 # Plan
 
-- [ ] Low-price universe (100 symbols from the 2026-10-06 scan) and minute-bar collection for it.
-- [ ] Domain: rule set `day-v1` (entry, +5% target, trailing, stop, close decision, re-buy) and ledger replay.
-- [ ] Application: minute step (09:01 sweep → watchlist, then entries/exits/re-buys until 15:15/15:20).
-- [ ] Persistence: `shadow_trades` (insert-only); env flag `SHADOW_DAY_TRADING_ENABLED` (default false).
-- [ ] Console: daily results and recent virtual trades.
+- [x] Low-price universe (100 symbols from the 2026-10-06 scan) and minute-bar collection for it.
+- [x] Domain: rule set `day-v1` (entry, +5% target, trailing, stop, close decision, re-buy) and ledger replay.
+- [x] Application: minute step (09:01 sweep → watchlist, then entries/exits/re-buys until 15:15/15:20).
+- [x] Persistence: `shadow_trades` (insert-only); env flag `SHADOW_DAY_TRADING_ENABLED` (default false).
+- [x] Console: daily results and recent virtual trades.
 - [ ] Tests, deploy, enable.
 
 # Decisions
@@ -28,6 +28,8 @@ strength; sell at +5% or after +3% when 1.5% below the high since entry; stop at
 hold losers only if above the session's first price; re-buy 2% below the last sell price (at most 3 per symbol/day).
 
 # Progress
+
+2026-10-07: implemented (decision 0020); 681 tests, typecheck, lint and web build pass.
 
 # Validation
 

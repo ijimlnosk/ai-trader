@@ -317,3 +317,18 @@ export const dartDisclosures = pgTable('dart_disclosures', {
   provider: text('provider').notNull(),
   collectedAt: instant('collected_at').notNull(),
 }, (t) => [index('dart_disclosures_stock_date_idx').on(t.stockCode, t.receiptDate)]);
+
+// Virtual (order-free) fills of intraday strategies; insert-only. Whole KRW and whole shares.
+export const shadowTrades = pgTable('shadow_trades', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  strategy: text('strategy').notNull(),
+  sessionDate: text('session_date').notNull(),
+  symbol: text('symbol').notNull(),
+  side: orderSide('side').notNull(),
+  quantity: quantity('quantity').notNull(),
+  quotePrice: money('quote_price').notNull(),
+  fillPrice: money('fill_price').notNull(),
+  feesKrw: money('fees_krw').notNull(),
+  reason: text('reason').notNull(),
+  createdAt: instant('created_at').notNull(),
+}, (t) => [index('shadow_trades_strategy_created_idx').on(t.strategy, t.createdAt)]);

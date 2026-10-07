@@ -43,3 +43,7 @@ it('refuses the disclosure schedule without its repository', () => {
   expect(() => createRuntimeApp({ ...environment, DISCLOSURE_SCHEDULE_ENABLED: true, DART_API_KEY: 'k' }, { checkConnection: async () => {} }, false))
     .toThrow('Disclosure schedule dependencies required');
 });
+it('refuses virtual day trading without its trade repository', () => {
+  expect(() => createRuntimeApp({ ...environment, SHADOW_DAY_TRADING_ENABLED: true }, { checkConnection: async () => {} }, false))
+    .toThrow('Shadow day-trading dependencies required');
+});
