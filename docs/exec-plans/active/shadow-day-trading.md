@@ -19,7 +19,7 @@ Start as a virtual (order-free) run on live quotes and accumulate data; change r
 - [x] Application: minute step (09:01 sweep → watchlist, then entries/exits/re-buys until 15:15/15:20).
 - [x] Persistence: `shadow_trades` (insert-only); env flag `SHADOW_DAY_TRADING_ENABLED` (default false).
 - [x] Console: daily results and recent virtual trades.
-- [ ] Tests, deploy, enable.
+- [x] Tests, deploy, enable (2026-10-07; shared KIS gate after rate-limit collisions).
 
 # Decisions
 

@@ -288,3 +288,14 @@ daily coverage 54 symbols × 184 bars through 20261002, minute coverage 54 × 39
 take-profit signal. At KRW 500,000 (budget KRW 45,000 per position) 8 universe symbols are buyable (HMM, 우리금융지주,
 삼성중공업, 한국전력, 기업은행, HLB, 카카오, 카카오뱅크); none of today's top five is among them. The tab itself was not
 inspected in a browser.
+
+## Virtual day trading enabled (2026-10-07)
+
+Commit `4ca39f9` (decision 0020, migration 0014) deployed 11:09 KST with the owner adding `SHADOW_DAY_TRADING_ENABLED=true`
+and its Compose passthrough; evidence `/home/jinsol/ai-trader-backups/shadow-day-trading-20261007`. First watchlist 11:13
+(97 of 100 quoted), first virtual buys 11:14 (069540, 490470, 256840).
+
+The separate KIS session caused EGW00201 (per-second limit) rejections on both sides: 3 virtual and 2 production
+take-profit reads at 1.5 s; 6 and 3 after `f143256` (2.5 s pacing and a 09:04–09:10 quiet window). `8ed9a49` routes
+virtual quotes through the production session's single FIFO gate (1.5 s); deployed 11:53. From then to 12:02: 0 rejections,
+100 of 100 quoted. Virtual fills so far: 3 entries 11:14, 069540 stop and 043260 entry 11:43.
