@@ -299,3 +299,9 @@ The separate KIS session caused EGW00201 (per-second limit) rejections on both s
 take-profit reads at 1.5 s; 6 and 3 after `f143256` (2.5 s pacing and a 09:04–09:10 quiet window). `8ed9a49` routes
 virtual quotes through the production session's single FIFO gate (1.5 s); deployed 11:53. From then to 12:02: 0 rejections,
 100 of 100 quoted. Virtual fills so far: 3 entries 11:14, 069540 stop and 043260 entry 11:43.
+
+## Take-profit thresholds +5% / +10% / +30% (2026-10-07 12:29 KST)
+
+Commit `881083a` (migration 0015). Evidence `/home/jinsol/ai-trader-backups/take-profit-thresholds-20261007`; replaced
+files matched `b13838d`. Server and web rebuilt, migration applied (check now allows TAKE_PROFIT_5/10/30), both healthy,
+no EGW00201 in the first minutes. No crossing recorded yet (S-Oil +4.64% at 12:11).
