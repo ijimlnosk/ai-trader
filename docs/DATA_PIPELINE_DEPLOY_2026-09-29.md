@@ -305,3 +305,13 @@ virtual quotes through the production session's single FIFO gate (1.5 s); deploy
 Commit `881083a` (migration 0015). Evidence `/home/jinsol/ai-trader-backups/take-profit-thresholds-20261007`; replaced
 files matched `b13838d`. Server and web rebuilt, migration applied (check now allows TAKE_PROFIT_5/10/30), both healthy,
 no EGW00201 in the first minutes. No crossing recorded yet (S-Oil +4.64% at 12:11).
+
+## Virtual ETF rotation enabled (2026-10-07 18:22 KST)
+
+Commit `15f913b` (decision 0021, no migration). Evidence `/home/jinsol/ai-trader-backups/shadow-etf-20261007`; replaced files
+matched `7cfbdda`. The owner added `SHADOW_ETF_ROTATION_ENABLED=true` and its Compose passthrough. Server and web rebuilt
+and healthy; live false. First rotation: 2026-10-12 (first session of the next week).
+
+First virtual day-trading session (day-v1, 2026-10-07 from 11:14): 14 fills, 6 round trips — 2 stops (069540, 256840),
+3 trailing exits in profit (033160, 490470, 012210), 1 close exit (028670). Realized −7,703 KRW after costs; 043260 and
+257720 (4 shares each) held overnight by the 15:15 rule.
