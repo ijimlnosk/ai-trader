@@ -34,19 +34,23 @@ for (const [index, [code]] of SYMBOLS.entries()) {
   if (index % 20 === 0) process.stderr.write(`${index}/${SYMBOLS.length}\n`);
 }
 // RAW=1 keeps every symbol with its own dates (point-in-time research handles listings and gaps itself).
+// No process.exit(): it would cut off a large piped stdout (first ETF run, 2026-10-07, stopped at 64 KiB).
 if (env.RAW === '1') {
   process.stdout.write(JSON.stringify({ source: `KIS FHKST03010100 J raw retrieved ${new Date().toISOString()}`, timezone: 'Asia/Seoul', priceBasis: 'raw',
     series: [...bySymbol].map(([symbol, candles]) => ({ symbol, candles })) }));
   process.stderr.write(JSON.stringify({ symbols: bySymbol.size, errors }) + '\n');
-  process.exit(0);
+} else {
+  writeAligned();
 }
-const counts = new Map();
-for (const candles of bySymbol.values()) { const key = candles.map((c) => c.date).join(); counts.set(key, (counts.get(key) ?? 0) + 1); }
-const sessions = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0].split(',');
-const series = []; const excluded = [];
-for (const [symbol, candles] of bySymbol) {
-  if (candles.map((c) => c.date).join() === sessions.join()) series.push({ symbol, candles }); else excluded.push([symbol, candles.length]);
+function writeAligned() {
+  const counts = new Map();
+  for (const candles of bySymbol.values()) { const key = candles.map((c) => c.date).join(); counts.set(key, (counts.get(key) ?? 0) + 1); }
+  const sessions = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0].split(',');
+  const series = []; const excluded = [];
+  for (const [symbol, candles] of bySymbol) {
+    if (candles.map((c) => c.date).join() === sessions.join()) series.push({ symbol, candles }); else excluded.push([symbol, candles.length]);
+  }
+  process.stdout.write(JSON.stringify({ source: `KIS FHKST03010100 J raw low-price research ${sessions[0]}-${sessions.at(-1)} retrieved ${new Date().toISOString()}`,
+    timezone: 'Asia/Seoul', priceBasis: 'raw', sessions, series }));
+  process.stderr.write(JSON.stringify({ sessions: sessions.length, included: series.length, excluded, errors }) + '\n');
 }
-process.stdout.write(JSON.stringify({ source: `KIS FHKST03010100 J raw low-price research ${sessions[0]}-${sessions.at(-1)} retrieved ${new Date().toISOString()}`,
-  timezone: 'Asia/Seoul', priceBasis: 'raw', sessions, series }));
-process.stderr.write(JSON.stringify({ sessions: sessions.length, included: series.length, excluded, errors }) + '\n');
