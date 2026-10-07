@@ -11,10 +11,11 @@ Date: 2026-10-07. Status: accepted (owner request: build it, accumulate paper da
 - Virtual fills on live quotes (≤ 10 s old) with commission 2 bp per side, sell tax 20 bp and slippage 10 bp; whole
   KRW and shares. Every fill is stored insert-only in `shadow_trades` (migration 0014); cash and holdings are
   replayed from them, so restarts keep the ledger.
-- No proposal, Risk Engine call or broker write. A separate KIS session (quotes only) keeps production quote and order
-  calls from queueing behind it. Both sessions share the provider's per-second limit: after EGW00201 rejections on
-  2026-10-07 (3 virtual, 2 production take-profit reads) the virtual session paces at 2.5 s and makes no calls from
-  09:04 to 09:10, around the 09:05 momentum orders; a sweep reaching 09:04 stops with the quotes it has.
+- No proposal, Risk Engine call or broker write. Quotes go through the production KIS session and its 1.5 s pacing:
+  the provider's per-second limit is per app key, and a separate session (first at 1.5 s, then 2.5 s) caused EGW00201
+  rejections on both sides on 2026-10-07. Virtual calls are sequential, so a production call waits for at most one of
+  them. The virtual trader makes no calls from 09:04 to 09:10, around the 09:05 momentum orders; a sweep reaching
+  09:04 stops with the quotes it has.
 - `SHADOW_DAY_TRADING_ENABLED` (default false). The minute-bar archive now also covers the low-price universe
   (about 150 symbols, roughly 2,100 KIS calls each evening at 1.5 s).
 

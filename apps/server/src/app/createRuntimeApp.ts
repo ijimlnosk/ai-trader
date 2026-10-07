@@ -68,8 +68,10 @@ export function createRuntimeApp(
     ...(insightsRead ? { insightsRead } : {}),
     // Separate KIS session (quotes only, own pacing) so virtual trading never queues production calls.
     ...(shadowTrades ? { shadowTrades } : {}),
-    ...(environment.SHADOW_DAY_TRADING_ENABLED && shadowTrades ? { shadowMarket: createKisBroker({ baseUrl: environment.KIS_BASE_URL,
-      appKey: environment.KIS_APP_KEY, appSecret: environment.KIS_APP_SECRET }, undefined, Date.now, (event) => app.log.warn(event, 'KIS API request rejected (shadow)'), 2500) } : {}),
+    // Same KIS session and pacing as production: the provider's per-second limit is per app key, and two
+    // independently paced sessions collided (EGW00201, 2026-10-07). Virtual calls are sequential, so a
+    // production call waits for at most one of them; the virtual trader is idle 09:04–09:10.
+    ...(environment.SHADOW_DAY_TRADING_ENABLED && shadowTrades ? { shadowMarket: marketBroker ?? broker } : {}),
     ...(environment.DART_API_KEY ? { disclosureSource: createOpenDartSource({ apiKey: environment.DART_API_KEY }) } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,
