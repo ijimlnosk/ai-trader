@@ -71,7 +71,7 @@ export function createRuntimeApp(
     // Same KIS session and pacing as production: the provider's per-second limit is per app key, and two
     // independently paced sessions collided (EGW00201, 2026-10-07). Virtual calls are sequential, so a
     // production call waits for at most one of them; the virtual trader is idle 09:04–09:10.
-    ...(environment.SHADOW_DAY_TRADING_ENABLED && shadowTrades ? { shadowMarket: marketBroker ?? broker } : {}),
+    ...((environment.SHADOW_DAY_TRADING_ENABLED || environment.SHADOW_ETF_ROTATION_ENABLED) && shadowTrades ? { shadowMarket: marketBroker ?? broker, shadowHistory: broker } : {}),
     ...(environment.DART_API_KEY ? { disclosureSource: createOpenDartSource({ apiKey: environment.DART_API_KEY }) } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
       account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,

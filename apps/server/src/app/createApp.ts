@@ -53,6 +53,8 @@ import type { DisclosureRepository, DisclosureSource } from '../application/disc
 import { createDisclosureSchedule } from '../application/disclosures/schedule.ts';
 import { createShadowDayTrader, type ShadowTradeRepository } from '../application/strategy/shadowDayTrader.ts';
 import { lowPriceSymbols } from '../domain/market/lowPriceUniverse.ts';
+import { createShadowEtfRotation } from '../application/strategy/shadowEtfRotation.ts';
+import { etfSymbols } from '../domain/market/etfUniverse.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -61,7 +63,7 @@ export function createApp(
     tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
     newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource;
     intradaySignals?: IntradaySignalRepository; disclosureSource?: DisclosureSource; disclosures?: DisclosureRepository;
-    insightsRead?: InsightReadRepository; shadowMarket?: MarketBroker; shadowTrades?: ShadowTradeRepository },
+    insightsRead?: InsightReadRepository; shadowMarket?: MarketBroker; shadowHistory?: DailyHistorySource; shadowTrades?: ShadowTradeRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -176,6 +178,14 @@ export function createApp(
       report: (event, detail) => app.log.info({ event, ...detail }, 'Shadow day trading') });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Shadow day trading'), 60000); });
+    app.addHook('preClose', async () => { await stop?.(); });
+  }
+  if (environment.SHADOW_ETF_ROTATION_ENABLED) {
+    if (!dependencies.shadowMarket || !dependencies.shadowHistory || !dependencies.shadowTrades) throw new Error('Shadow ETF rotation dependencies required');
+    const step = createShadowEtfRotation({ market: dependencies.shadowMarket, history: dependencies.shadowHistory, trades: dependencies.shadowTrades,
+      symbols: etfSymbols(), report: (event, detail) => app.log.info({ event, ...detail }, 'Shadow ETF rotation') });
+    let stop: (() => Promise<void>) | undefined;
+    app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Shadow ETF rotation'), 60000); });
     app.addHook('preClose', async () => { await stop?.(); });
   }
   if (environment.DISCLOSURE_SCHEDULE_ENABLED) {

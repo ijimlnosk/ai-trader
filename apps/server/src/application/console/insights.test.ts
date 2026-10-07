@@ -36,7 +36,9 @@ describe('console insights: virtual day trading', () => {
     const fill = (side: 'BUY' | 'SELL', quantity: bigint, fillPrice: bigint, feesKrw: bigint, sessionDate: string) =>
       ({ sessionDate, symbol: '047040', side, quantity, quotePrice: fillPrice, fillPrice, feesKrw, reason: side === 'BUY' ? 'ENTRY' : 'TARGET', createdAt: `${sessionDate}T00:00:00.000Z` });
     const trades = [fill('BUY', 10n, 17000n, 34n, '20261008'), fill('SELL', 10n, 17850n, 397n, '20261008'), fill('BUY', 5n, 17500n, 18n, '20261009')];
-    const shadow = (await createInsightQuery({ latestPlanRun: async () => null }, repository, { list: async () => trades, record: async () => {} })()).shadow!;
+    const shadows = (await createInsightQuery({ latestPlanRun: async () => null }, repository, { list: async (strategy) => (strategy === 'day-v1' ? trades : []), record: async () => {} })()).shadows;
+    expect(shadows.map((s) => s.strategy)).toEqual(['day-v1', 'etf-v1']);
+    const shadow = shadows[0]!;
     expect(shadow.realizedKrw).toBe(String(178_500 - 397 - 170_034));
     expect(shadow.cashKrw).toBe(String(500_000 - 170_034 + 178_103 - 87_518));
     expect(shadow.holdings).toEqual([{ symbol: '047040', name: '대우건설', quantity: '5', costKrw: '87518', entryPrice: '17500' }]);

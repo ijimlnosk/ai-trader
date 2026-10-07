@@ -26,7 +26,7 @@ it('owner session reads its account, while other/unlinked users cannot reach rep
     expect((await s.app.inject({ url: '/api/v1/me/console/portfolio', headers })).statusCode).toBe(200);
     const insights = await s.app.inject({ url: '/api/v1/me/console/insights', headers });
     expect(insights.statusCode).toBe(200);
-    expect(insights.json()).toEqual({ momentum: null, collection: { daily: [], minute: [] }, disclosures: [], takeProfit: [], shadow: null });
+    expect(insights.json()).toEqual({ momentum: null, collection: { daily: [], minute: [] }, disclosures: [], takeProfit: [], shadows: [] });
     s.portfolio.mockClear(); s.listOrders.mockClear();
     for (const account of ['account-b', null]) {
       for (const identity of s.sessions.values()) identity.executionAccount = account;

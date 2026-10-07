@@ -99,11 +99,11 @@ export interface ConsoleInsightsResponse {
   disclosures: { receiptNo: string; symbol: string; name: string; receiptDate: string; reportName: string }[];
   /** Dry-run threshold crossings; rule is TAKE_PROFIT_5, TAKE_PROFIT_10 or TAKE_PROFIT_30. */
   takeProfit: { symbol: string; name: string; sessionDate: string; rule: string; averagePrice: string; price: string; gainBps: number; detectedAt: string }[];
-  /** Virtual (order-free) intraday trading; KRW amounts include fees, holdings at cost. */
-  shadow: {
-    strategy: string; capitalKrw: string; cashKrw: string; realizedKrw: string;
+  /** Virtual (order-free) ledgers; KRW amounts include fees, holdings at cost. The seed (capital) is never withdrawn. */
+  shadows: {
+    strategy: string; label: string; capitalKrw: string; cashKrw: string; realizedKrw: string;
     holdings: { symbol: string; name: string; quantity: string; costKrw: string; entryPrice: string }[];
     days: { sessionDate: string; trades: number; realizedKrw: string }[];
     recent: { sessionDate: string; symbol: string; name: string; side: 'BUY' | 'SELL'; quantity: string; fillPrice: string; reason: string; createdAt: string }[];
-  } | null;
+  }[];
 }

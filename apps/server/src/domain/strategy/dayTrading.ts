@@ -24,10 +24,11 @@ export function buyFill(quotePrice: bigint, budgetKrw: bigint) {
   return { quantity, fillPrice, feesKrw: fees(quantity), costKrw: quantity * fillPrice + fees(quantity) };
 }
 
-export function sellFill(quotePrice: bigint, quantity: bigint) {
+/** Domestic ETFs pass `taxBps = 0n` (no securities transaction tax on ETF sales). */
+export function sellFill(quotePrice: bigint, quantity: bigint, taxBps: bigint = DAY_COSTS.sellTaxBps) {
   const fillPrice = quotePrice * (10000n - DAY_COSTS.slippageBps) / 10000n;
   const gross = quantity * fillPrice;
-  const feesKrw = ceilDiv(gross * (DAY_COSTS.commissionBps + DAY_COSTS.sellTaxBps), 10000n);
+  const feesKrw = ceilDiv(gross * (DAY_COSTS.commissionBps + taxBps), 10000n);
   return { fillPrice, feesKrw, proceedsKrw: gross - feesKrw };
 }
 

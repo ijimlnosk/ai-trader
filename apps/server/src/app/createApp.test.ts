@@ -47,3 +47,7 @@ it('refuses virtual day trading without its trade repository', () => {
   expect(() => createRuntimeApp({ ...environment, SHADOW_DAY_TRADING_ENABLED: true }, { checkConnection: async () => {} }, false))
     .toThrow('Shadow day-trading dependencies required');
 });
+it('refuses the virtual ETF rotation without its trade repository', () => {
+  expect(() => createRuntimeApp({ ...environment, SHADOW_ETF_ROTATION_ENABLED: true }, { checkConnection: async () => {} }, false))
+    .toThrow('Shadow ETF rotation dependencies required');
+});
