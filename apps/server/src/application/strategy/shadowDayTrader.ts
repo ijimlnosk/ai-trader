@@ -5,7 +5,9 @@ import { buyFill, closeDecision, DAY_V1, exitReason, isRebuy, morningWatchlist, 
 import { replayShadow, type ShadowTrade } from '../../domain/strategy/shadowLedger.ts';
 import type { MarketBroker } from '../market.ts';
 
-const SWEEP_START = 9 * 60 + 1, SWEEP_END = 14 * 60 + 30, TRADE_START = 9 * 60 + 10, ENTRY_END = 15 * 60;
+// 09:04–09:10 is kept free of virtual-trading quote calls: production momentum orders run at 09:05 and share the
+// provider's per-second limit (EGW00201 observed 2026-10-07 when both clients were busy).
+const SWEEP_START = 9 * 60 + 1, QUIET_START = 9 * 60 + 4, SWEEP_END = 14 * 60 + 30, TRADE_START = 9 * 60 + 10, ENTRY_END = 15 * 60;
 const CLOSE_DECISION = 15 * 60 + 15, END = 15 * 60 + 20, MAX_QUOTE_AGE_MS = 10_000;
 
 export interface ShadowTradeRepository {
@@ -38,7 +40,13 @@ export function createShadowDayTrader(deps: { market: Pick<MarketBroker, 'getQuo
     if (!state.watchlist) {
       if (minute >= SWEEP_END) return;
       const quotes: MorningQuote[] = [];
-      for (const symbol of deps.symbols) { const q = await quote(symbol); if (q) { quotes.push(q); state.first.set(symbol, q.price); } }
+      if (minute >= QUIET_START && minute < TRADE_START) return;
+      for (const symbol of deps.symbols) {
+        const at2 = new Date(now().getTime() + 9 * 3600000); const current = at2.getUTCHours() * 60 + at2.getUTCMinutes();
+        // A sweep that reaches the quiet window stops and uses the quotes it has.
+        if (current >= QUIET_START && current < TRADE_START) break;
+        const q = await quote(symbol); if (q) { quotes.push(q); state.first.set(symbol, q.price); }
+      }
       state.watchlist = morningWatchlist(quotes, config);
       return deps.report('shadow_watchlist', { quoted: String(quotes.length), symbols: state.watchlist.join(',') });
     }

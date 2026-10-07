@@ -59,3 +59,16 @@ describe('shadow day trader (virtual, order-free)', () => {
     await step(); await step();
   });
 });
+
+describe('shadow day trader quiet window', () => {
+  it('makes no quote calls from 09:04 to 09:10 and stops a sweep that reaches 09:04', async () => {
+    let calls = 0; let now = kst('09:05');
+    const step = createShadowDayTrader({ symbols: ['A', 'B', 'C'], now: () => now, report: () => {}, trades: { list: async () => [], record: async () => {} },
+      market: { getQuote: async (symbol) => { calls += 1; if (calls === 2) now = kst('09:04'); return { symbol, price: '10000', change: '0', changeRate: '3.00', volume: '1',
+        timestamp: new Date(now.getTime() - 1000).toISOString() }; } } });
+    await step();
+    expect(calls).toBe(0);
+    now = kst('09:03'); await step();
+    expect(calls).toBe(2);
+  });
+});
