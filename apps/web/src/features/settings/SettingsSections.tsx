@@ -45,6 +45,7 @@ const RISK: [keyof Risk, string, 'rate' | 'count', 'max' | 'min'][] = [
   ['maxDailyLossRate', '하루 손실 한도', 'rate', 'max'], ['maxConsecutiveLosses', '연속 손실 정지', 'count', 'max'],
   ['minConfidence', '최소 신뢰도', 'rate', 'min'],
 ];
+const UNITS: Partial<Record<keyof Risk, string>> = { maxOpenPositions: '개', maxConsecutiveLosses: '번' };
 const percent = (rate: string) => String(Math.round(Number(rate) * 10000) / 100);
 const toRate = (value: string) => (Number(value) / 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, '.0');
 
@@ -55,10 +56,13 @@ export function RiskLimits({ draft, defaults, invalid, onChange }: { draft: Risk
     <div className="risk-grid">{RISK.map(([key, label, kind, bound]) => (
       <label key={key} className={`field ${invalid.includes(`risk.${key}`) ? 'field-invalid' : ''}`}>
         <span>{label} <span className="subtle">({bound === 'max' ? '최대' : '최소'} {kind === 'rate' ? `${percent(String(defaults[key]))}%` : defaults[key]})</span></span>
-        <input inputMode="decimal" value={text[key] ?? ''} onChange={(event) => {
-          const value = event.target.value; setText({ ...text, [key]: value });
-          onChange({ ...draft, [key]: kind === 'rate' ? toRate(value) : Number(value) });
-        }} />
+        <span className="input-unit">
+          <input inputMode="decimal" value={text[key] ?? ''} onChange={(event) => {
+            const value = event.target.value; setText({ ...text, [key]: value });
+            onChange({ ...draft, [key]: kind === 'rate' ? toRate(value) : Number(value) });
+          }} />
+          <span aria-hidden>{kind === 'rate' ? '%' : UNITS[key]}</span>
+        </span>
       </label>))}
     </div>
   );

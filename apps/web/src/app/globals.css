@@ -219,5 +219,10 @@ button { font: inherit; color: inherit; }
 .preset { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 12px; cursor: pointer; min-height: 44px; }
 .preset input { position: absolute; opacity: 0; pointer-events: none; }
 .preset-selected { border-color: var(--info); box-shadow: 0 0 0 1px var(--info) inset; }
-.risk-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.risk-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+/* Inputs have an intrinsic minimum width; without these they overflow narrow grid cells. */
+.risk-grid .field { min-width: 0; }
+.input-unit { position: relative; display: block; min-width: 0; }
+.input-unit input { width: 100%; min-width: 0; padding-right: 36px; }
+.input-unit span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-weight: 600; pointer-events: none; }
 .field-invalid input { border-color: var(--danger); }
