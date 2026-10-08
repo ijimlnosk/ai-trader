@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ShadowTrade } from '../../domain/strategy/shadowLedger.ts';
+import { DAY_V1 } from '../../domain/strategy/dayTrading.ts';
 import { createShadowDayTrader } from './shadowDayTrader.ts';
 
 // 2026-10-08 (session) at HH:MM KST.
@@ -70,5 +71,24 @@ describe('shadow day trader quiet window', () => {
     expect(calls).toBe(0);
     now = kst('09:03'); await step();
     expect(calls).toBe(2);
+  });
+});
+
+describe('shadow day trader owner settings', () => {
+  it('stops new entries when disabled but still exits holdings, and manages exits after a late restart', async () => {
+    const saved: ShadowTrade[] = [{ sessionDate: '20261007', symbol: 'A', side: 'BUY', quantity: 10n, quotePrice: 10000n, fillPrice: 10010n, feesKrw: 20n, reason: 'ENTRY', createdAt: '' }];
+    let calls = 0;
+    const make = (time: string, enabled: boolean) => createShadowDayTrader({ symbols: ['A', 'B'], now: () => kst(time), report: () => {},
+      settings: async () => ({ enabled, config: DAY_V1 }),
+      market: { getQuote: async (symbol) => { calls += 1; return { symbol, price: symbol === 'A' ? '9700' : '10000', change: '0', changeRate: '3.00', volume: '1',
+        timestamp: new Date(kst(time).getTime() - 1000).toISOString() }; } },
+      trades: { list: async () => [...saved], record: async (_s, trade) => { saved.push(trade); } } });
+    const disabled = make('09:01', false);
+    await disabled(); expect(calls).toBe(0);
+    const later = make('09:30', false); await later();
+    expect(saved.at(-1)).toMatchObject({ symbol: 'A', side: 'SELL', reason: 'STOP' });
+    saved.splice(1); saved[0] = { ...saved[0]!, sessionDate: '20261008' };
+    const lateRestart = make('14:45', true); await lateRestart();
+    expect(saved.at(-1)).toMatchObject({ symbol: 'A', side: 'SELL', reason: 'STOP' });
   });
 });

@@ -33,7 +33,9 @@ export interface IntradaySignalRepository {
  * proposal or order. Failed or stale reads are skipped and retried on the next step.
  */
 export function createTakeProfitWatch(deps: { account: AccountBroker; market: Pick<MarketBroker, 'getQuote'>;
-  signals: IntradaySignalRepository; report: (event: string, detail?: Record<string, string>) => void; now?: () => Date }) {
+  signals: IntradaySignalRepository; report: (event: string, detail?: Record<string, string>) => void; now?: () => Date;
+  /** Owner switch for today; off skips the step. */
+  isEnabled?: (() => Promise<boolean>) | undefined }) {
   const now = deps.now ?? (() => new Date());
   const state = { date: '', recorded: new Set<string>() };
   return async () => {
@@ -43,6 +45,7 @@ export function createTakeProfitWatch(deps: { account: AccountBroker; market: Pi
     const minute = seoul.getUTCHours() * 60 + seoul.getUTCMinutes();
     if (krxSessionStatus(today) !== 'session' || minute < WATCH_START_MINUTE || minute >= WATCH_END_MINUTE) return;
     if (state.date !== today) Object.assign(state, { date: today, recorded: new Set<string>() });
+    if (deps.isEnabled && !await deps.isEnabled()) return;
     const portfolio = await deps.account.getPortfolio().catch(() => null);
     if (!portfolio) return deps.report('take_profit_watch_failed', { stage: 'portfolio' });
     for (const position of portfolio.positions) {

@@ -18,8 +18,10 @@ const START = 9 * 60 + 20, END = 14 * 60, MAX_QUOTE_AGE_MS = 10_000;
  * session already has fills is never repeated (restart-safe). ETF sales carry no transaction tax.
  */
 export function createShadowEtfRotation(deps: { history: DailyHistorySource; market: Pick<MarketBroker, 'getQuote'>; trades: ShadowTradeRepository;
-  symbols: readonly string[]; report: (event: string, detail?: Record<string, string>) => void; config?: EtfConfig; now?: () => Date }) {
-  const config = deps.config ?? ETF_V1; const now = deps.now ?? (() => new Date());
+  symbols: readonly string[]; report: (event: string, detail?: Record<string, string>) => void; config?: EtfConfig; now?: () => Date;
+  /** Owner settings for today: disabled skips the week's rotation; config is the chosen preset. */
+  settings?: (() => Promise<{ enabled: boolean; config: EtfConfig }>) | undefined }) {
+  let config = deps.config ?? ETF_V1; const now = deps.now ?? (() => new Date());
   let doneDate = '';
   const price = async (symbol: string) => {
     const q = await deps.market.getQuote(symbol).catch(() => null);
@@ -30,6 +32,9 @@ export function createShadowEtfRotation(deps: { history: DailyHistorySource; mar
     const at = now(); const today = seoulOrderDate(at.toISOString()); const previous = previousKrxSession(today);
     const seoul = new Date(at.getTime() + 9 * 3600000); const minute = seoul.getUTCHours() * 60 + seoul.getUTCMinutes();
     if (doneDate === today || krxSessionStatus(today) !== 'session' || !previous || !isFirstSessionOfWeek(previous, today) || minute < START || minute >= END) return;
+    const owner = deps.settings ? await deps.settings() : { enabled: true, config };
+    if (!owner.enabled) { doneDate = today; return deps.report('shadow_etf_rotation_disabled'); }
+    config = owner.config;
     const trades = await deps.trades.list(config.id);
     if (trades.some((t) => t.sessionDate === today)) { doneDate = today; return; }
     const series: { symbol: string; closes: number[] }[] = [];

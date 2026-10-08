@@ -19,6 +19,7 @@ import { createIntradaySignalRepository } from '../infrastructure/database/intra
 import { createDisclosureRepository } from '../infrastructure/database/disclosureRepository.ts';
 import { createInsightReadRepository } from '../infrastructure/database/insightReadRepository.ts';
 import { createShadowTradeRepository } from '../infrastructure/database/shadowTradeRepository.ts';
+import { createOwnerSettingsRepository } from '../infrastructure/database/ownerSettingsRepository.ts';
 
 async function start() {
   const environment = parseEnvironment(process.env);
@@ -29,7 +30,8 @@ async function start() {
     createDailySnapshotRepository(database.db), createConsoleReadRepository(database.db, executionAccount), createAuth(createAuthRepository(database.db), passwordVerifier), executionAccount,
     createTradingControlRepository(database.db), createNewsRepository(database.db), createApiQuotaRepository(database.db),
     createAssessmentRepository(database.db), createMinuteBarRepository(database.db), createIntradaySignalRepository(database.db),
-    createDisclosureRepository(database.db), createInsightReadRepository(database.db), createShadowTradeRepository(database.db));
+    createDisclosureRepository(database.db), createInsightReadRepository(database.db), createShadowTradeRepository(database.db),
+    createOwnerSettingsRepository(database.db));
   app.addHook('onClose', () => database.close());
   let stopping = false;
   const shutdown = async () => {

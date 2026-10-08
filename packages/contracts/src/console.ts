@@ -107,3 +107,18 @@ export interface ConsoleInsightsResponse {
     recent: { sessionDate: string; symbol: string; name: string; side: 'BUY' | 'SELL'; quantity: string; fillPrice: string; reason: string; createdAt: string }[];
   }[];
 }
+
+/** Owner settings; rates are decimal strings ('0.10' = 10%). */
+export interface OwnerSettingsDto {
+  strategies: { momentumExecution: boolean; shadowDayTrading: boolean; shadowEtfRotation: boolean; takeProfitWatch: boolean };
+  dayPreset: string; etfPreset: string;
+  risk: { maxPositionExposureRate: string; maxOpenPositions: number; maxDailyLossRate: string; maxConsecutiveLosses: number; minConfidence: string };
+}
+/** Current and scheduled settings. Changes apply from `pending.effectiveFrom` (next session); the server switches are the outer bound. */
+export interface ConsoleSettingsResponse {
+  effective: OwnerSettingsDto; defaults: OwnerSettingsDto;
+  pending: { settings: OwnerSettingsDto; effectiveFrom: string; createdAt: string; byEmail: string | null } | null;
+  environment: OwnerSettingsDto['strategies'];
+  presets: { day: { id: string; label: string }[]; etf: { id: string; label: string; backtest: { inReturn: number; inDrawdown: number; outReturn: number; outDrawdown: number } }[] };
+  history: { settings: OwnerSettingsDto; effectiveFrom: string; createdAt: string; byEmail: string | null }[];
+}

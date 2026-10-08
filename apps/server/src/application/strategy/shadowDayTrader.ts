@@ -21,8 +21,10 @@ export interface ShadowTradeRepository {
  * highs and the watchlist are rebuilt). Stale or failed quotes are skipped.
  */
 export function createShadowDayTrader(deps: { market: Pick<MarketBroker, 'getQuote'>; trades: ShadowTradeRepository; symbols: readonly string[];
-  report: (event: string, detail?: Record<string, string>) => void; config?: DayConfig; now?: () => Date }) {
-  const config = deps.config ?? DAY_V1; const now = deps.now ?? (() => new Date());
+  report: (event: string, detail?: Record<string, string>) => void; config?: DayConfig; now?: () => Date;
+  /** Owner settings for today: disabled stops new entries (exits continue); config is the chosen preset. */
+  settings?: (() => Promise<{ enabled: boolean; config: DayConfig }>) | undefined }) {
+  let config = deps.config ?? DAY_V1; const now = deps.now ?? (() => new Date());
   const state = { date: '', watchlist: null as string[] | null, first: new Map<string, bigint>(), highSeen: new Map<string, bigint>(),
     highSinceEntry: new Map<string, bigint>(), closeDecided: new Set<string>() };
   const quote = async (symbol: string) => {
@@ -36,9 +38,12 @@ export function createShadowDayTrader(deps: { market: Pick<MarketBroker, 'getQuo
     const at = now(); const today = seoulOrderDate(at.toISOString());
     const seoul = new Date(at.getTime() + 9 * 3600000); const minute = seoul.getUTCHours() * 60 + seoul.getUTCMinutes();
     if (krxSessionStatus(today) !== 'session' || minute < SWEEP_START || minute >= END) return;
+    const owner = deps.settings ? await deps.settings() : { enabled: true, config };
+    config = owner.config;
     if (state.date !== today) Object.assign(state, { date: today, watchlist: null, first: new Map(), highSeen: new Map(), highSinceEntry: new Map(), closeDecided: new Set() });
+    // Without a sweep (late restart or disabled), holdings are still managed with an empty watchlist.
+    if (!state.watchlist && (minute >= SWEEP_END || !owner.enabled)) state.watchlist = [];
     if (!state.watchlist) {
-      if (minute >= SWEEP_END) return;
       const quotes: MorningQuote[] = [];
       if (minute >= QUIET_START && minute < TRADE_START) return;
       for (const symbol of deps.symbols) {
@@ -72,7 +77,7 @@ export function createShadowDayTrader(deps: { market: Pick<MarketBroker, 'getQuo
       await record({ symbol: holding.symbol, side: 'SELL', quantity: holding.quantity, quotePrice: q.price, fillPrice: fill.fillPrice, feesKrw: fill.feesKrw, reason });
       cash += fill.proceedsKrw; held.delete(holding.symbol); soldNow.add(holding.symbol); state.highSinceEntry.delete(holding.symbol);
     }
-    if (minute >= ENTRY_END) return;
+    if (minute >= ENTRY_END || !owner.enabled) return;
     const todays = trades.filter((t) => t.sessionDate === today);
     for (const symbol of state.watchlist) {
       const free = config.maxPositions - held.size; if (free <= 0) break;

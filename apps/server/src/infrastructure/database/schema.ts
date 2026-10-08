@@ -332,3 +332,13 @@ export const shadowTrades = pgTable('shadow_trades', {
   reason: text('reason').notNull(),
   createdAt: instant('created_at').notNull(),
 }, (t) => [index('shadow_trades_strategy_created_idx').on(t.strategy, t.createdAt)]);
+
+/** Owner settings history; insert-only. The newest row effective on or before a session applies to it. */
+export const ownerSettings = pgTable('owner_settings', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  executionAccount: text('execution_account').notNull(),
+  settings: jsonb('settings').notNull(),
+  effectiveFrom: text('effective_from').notNull(),
+  createdBy: uuid('created_by').references(() => consoleUsers.id, { onDelete: 'set null' }),
+  createdAt: instant('created_at').notNull().defaultNow(),
+}, (t) => [index('owner_settings_account_idx').on(t.executionAccount, t.effectiveFrom, t.createdAt)]);

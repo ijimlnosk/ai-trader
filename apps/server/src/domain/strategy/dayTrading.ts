@@ -9,7 +9,10 @@ export const DAY_V1 = Object.freeze({
   targetBps: 500n, trailArmBps: 300n, trailDropBps: 150n, stopBps: 300n,
   rebuyDropBps: 200n, maxBuysPerSymbolPerDay: 4,
 });
-export type DayConfig = typeof DAY_V1;
+export interface DayConfig {
+  id: string; capitalKrw: bigint; maxPositions: number; watchlistSize: number; entryMinChangeBps: bigint; entryMaxChangeBps: bigint;
+  targetBps: bigint; trailArmBps: bigint; trailDropBps: bigint; stopBps: bigint; rebuyDropBps: bigint; maxBuysPerSymbolPerDay: number;
+}
 
 /** Per fill: commission 2 bp each side, sell tax 20 bp, slippage 10 bp against us. */
 export const DAY_COSTS = Object.freeze({ commissionBps: 2n, sellTaxBps: 20n, slippageBps: 10n });

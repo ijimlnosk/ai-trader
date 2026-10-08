@@ -99,3 +99,18 @@ it('confirmed fill and broker holdings release the account for another candidate
   expect(await reconcile(order.id)).toMatchObject({ brokerStatus: 'FILLED', filledQuantity: '1', positionsSyncedAt: time });
   expect((await execute(randomUUID(), input)).brokerStatus).toBe('SUBMITTED');
 });
+it('evaluates with the owner-tightened policy and stores it in the audit', async () => {
+  const s = setupOrders();
+  const { DEFAULT_RISK_POLICY } = await import('../../domain/risk/index.ts');
+  const tightened = { ...DEFAULT_RISK_POLICY, version: 'v1-owner', minConfidence: '0.95' };
+  const order = await createOrderExecution({ ...s.deps, riskPolicy: async () => tightened })(randomUUID(), { ...input, confidence: '0.90' });
+  expect(order).toMatchObject({ brokerStatus: 'RISK_REJECTED', riskReasons: ['CONFIDENCE_TOO_LOW'] });
+  expect(order.audit?.policy).toEqual(tightened);
+  expect(s.broker.submitOrder).not.toHaveBeenCalled();
+});
+it('fails closed without a broker write when the owner policy cannot be read', async () => {
+  const s = setupOrders();
+  const order = await createOrderExecution({ ...s.deps, riskPolicy: async () => { throw new Error('db down'); } })(randomUUID(), input);
+  expect(order).toMatchObject({ brokerStatus: 'FAILED', failureCode: 'order_context_unavailable' });
+  expect(s.broker.submitOrder).not.toHaveBeenCalled();
+});

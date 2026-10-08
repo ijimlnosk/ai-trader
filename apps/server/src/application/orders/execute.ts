@@ -1,4 +1,4 @@
-import { DEFAULT_RISK_POLICY, evaluateRisk, parseRiskDecimal } from '../../domain/risk/index.ts';
+import { DEFAULT_RISK_POLICY, evaluateRisk, parseRiskDecimal, type RiskPolicy } from '../../domain/risk/index.ts';
 import { isPaperOrderSession, seoulOrderDate, type CreateOrderRequest, type StoredOrder } from '../../domain/orders.ts';
 import type { MarketBroker } from '../market.ts';
 import type { AccountBroker } from '../portfolio.ts';
@@ -13,6 +13,8 @@ export interface ExecutionDependencies {
   broker: OrderBroker;
   enabled: boolean;
   killSwitchEnabled: boolean;
+  /** Owner-tightened policy for today (never looser than the default); a failed read fails the order closed. */
+  riskPolicy?: () => Promise<Readonly<RiskPolicy>>;
   now?: () => Date;
 }
 
@@ -48,10 +50,11 @@ export function createOrderExecution(deps: ExecutionDependencies) {
         if (parseRiskDecimal(power.quantity)! < parseRiskDecimal(request.quantity)!) return await fail('insufficient_buying_power');
       }
       const proposal = { ...request, estimatedPrice: quote.price, createdAt: now().toISOString() };
-      const decision = evaluateRisk(proposal, context);
+      const policy = deps.riskPolicy ? await deps.riskPolicy() : DEFAULT_RISK_POLICY;
+      const decision = evaluateRisk(proposal, context, policy);
       order = await deps.repository.update(order, {
         requestedPrice: quote.price, riskStatus: decision.approved ? 'approved' : 'rejected', riskReasons: decision.reasons,
-        audit: { proposal, context, policy: DEFAULT_RISK_POLICY, decision, evaluatedAt: now().toISOString(), quoteReceivedAt: quote.timestamp,
+        audit: { proposal, context, policy, decision, evaluatedAt: now().toISOString(), quoteReceivedAt: quote.timestamp,
           positionQuantityBefore: position?.quantity ?? '0' },
         ...(!decision.approved ? { brokerStatus: 'RISK_REJECTED' as const } : {}),
       });

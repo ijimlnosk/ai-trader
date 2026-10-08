@@ -55,6 +55,8 @@ import { createShadowDayTrader, type ShadowTradeRepository } from '../applicatio
 import { lowPriceSymbols } from '../domain/market/lowPriceUniverse.ts';
 import { createShadowEtfRotation } from '../application/strategy/shadowEtfRotation.ts';
 import { etfSymbols } from '../domain/market/etfUniverse.ts';
+import { createOwnerSettings, type OwnerSettingsRepository } from '../application/settings/index.ts';
+import { DAY_PRESETS, ETF_PRESETS } from '../domain/strategy/presets.ts';
 
 export function createApp(
   environment: Environment, database: DatabaseHealth,
@@ -63,7 +65,8 @@ export function createApp(
     tradingControls?: TradingControlRepository; newsSearch?: NewsSearch; newsRepository?: NewsRepository; apiQuota?: ApiQuota;
     newsAssessor?: NewsAssessor; assessments?: AssessmentRepository; minuteBars?: MinuteBarRepository; minuteBarSource?: MinuteBarSource;
     intradaySignals?: IntradaySignalRepository; disclosureSource?: DisclosureSource; disclosures?: DisclosureRepository;
-    insightsRead?: InsightReadRepository; shadowMarket?: MarketBroker; shadowHistory?: DailyHistorySource; shadowTrades?: ShadowTradeRepository },
+    insightsRead?: InsightReadRepository; shadowMarket?: MarketBroker; shadowHistory?: DailyHistorySource; shadowTrades?: ShadowTradeRepository;
+    ownerSettings?: OwnerSettingsRepository },
   logger: boolean | { write(chunk: string): void } = true,
 ) {
   if (environment.BROKER_MODE !== 'paper') {
@@ -121,6 +124,11 @@ export function createApp(
     environmentAllows: environment.PAPER_ORDER_EXECUTION_ENABLED
       && ((environment.PAPER_LOOP_SCHEDULE_ENABLED && environment.PAPER_LOOP_ENABLED) || environment.MOMENTUM_EXECUTION_ENABLED),
   }) : undefined;
+  // Owner settings narrow what the server switches allow; they never widen them.
+  const settings = dependencies.ownerSettings && dependencies.auth && dependencies.executionAccount ? createOwnerSettings({
+    repository: dependencies.ownerSettings, auth: dependencies.auth, account: dependencies.executionAccount,
+    environment: { momentumExecution: environment.MOMENTUM_EXECUTION_ENABLED, shadowDayTrading: environment.SHADOW_DAY_TRADING_ENABLED,
+      shadowEtfRotation: environment.SHADOW_ETF_ROTATION_ENABLED, takeProfitWatch: environment.INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED } }) : undefined;
   const newsCaps = { daily: environment.NAVER_DAILY_CALL_CAP, monthly: environment.NAVER_MONTHLY_CALL_CAP };
   const news = dependencies.newsRepository ? createNewsQuery({ news: dependencies.newsRepository, quota: dependencies.apiQuota,
     provider: dependencies.newsSearch?.provider ?? 'naver-api-hub-news', caps: newsCaps }) : undefined;
@@ -128,7 +136,7 @@ export function createApp(
     search: dependencies.newsSearch, quota: dependencies.apiQuota, news: dependencies.newsRepository, caps: newsCaps,
     symbols: UNIVERSE.symbols }) : undefined;
   const insights = dependencies.consoleRead && dependencies.insightsRead ? createInsightQuery(dependencies.consoleRead, dependencies.insightsRead, dependencies.shadowTrades) : undefined;
-  registerUserConsole(app, { news, controls, insights, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
+  registerUserConsole(app, { news, controls, insights, settings, auth: dependencies.auth, account: dependencies.executionAccount ?? '', queries: consoleQueries,
     portfolio: createPortfolioQuery(dependencies.accountBroker), market: createMarket(dependencies.marketBroker),
     health: createHealthCheck(database, new PaperBroker()) });
   const universeDataset = snapshots ? createUniverseDatasetBuilder({ snapshots, symbols: universeSymbols(), label: UNIVERSE.version }) : undefined;
@@ -140,7 +148,8 @@ export function createApp(
     || environment.UNIVERSE_PLAN_SCHEDULE_ENABLED || environment.NEWS_ANALYSIS_ENABLED) {
     if (environment.UNIVERSE_PLAN_SCHEDULE_ENABLED && !planRunners) throw new Error('Plan schedule dependencies required');
     const momentumExecutor = environment.MOMENTUM_EXECUTION_ENABLED && dependencies.orders && dependencies.consoleRead && controls
-      ? createMomentumExecutor({ plans: dependencies.consoleRead, orders: dependencies.orders, isEnabled: controls.isAutoTradingEnabled }) : undefined;
+      ? createMomentumExecutor({ plans: dependencies.consoleRead, orders: dependencies.orders,
+        isEnabled: async () => await controls.isAutoTradingEnabled() && (!settings || await settings.isEnabled('momentumExecution')) }) : undefined;
     if (environment.MOMENTUM_EXECUTION_ENABLED && !momentumExecutor) throw new Error('Momentum execution dependencies required');
     const screenNews = environment.NEWS_ANALYSIS_ENABLED && dependencies.newsAssessor && dependencies.newsRepository && dependencies.apiQuota
       && dependencies.assessments && dependencies.consoleRead ? createNewsScreener({ assessor: dependencies.newsAssessor,
@@ -175,6 +184,7 @@ export function createApp(
   if (environment.SHADOW_DAY_TRADING_ENABLED) {
     if (!dependencies.shadowMarket || !dependencies.shadowTrades) throw new Error('Shadow day-trading dependencies required');
     const step = createShadowDayTrader({ market: dependencies.shadowMarket, trades: dependencies.shadowTrades, symbols: lowPriceSymbols(),
+      settings: settings ? async () => { const s = await settings.effective(); return { enabled: s.strategies.shadowDayTrading, config: DAY_PRESETS[s.dayPreset].config }; } : undefined,
       report: (event, detail) => app.log.info({ event, ...detail }, 'Shadow day trading') });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Shadow day trading'), 60000); });
@@ -183,6 +193,7 @@ export function createApp(
   if (environment.SHADOW_ETF_ROTATION_ENABLED) {
     if (!dependencies.shadowMarket || !dependencies.shadowHistory || !dependencies.shadowTrades) throw new Error('Shadow ETF rotation dependencies required');
     const step = createShadowEtfRotation({ market: dependencies.shadowMarket, history: dependencies.shadowHistory, trades: dependencies.shadowTrades,
+      settings: settings ? async () => { const s = await settings.effective(); return { enabled: s.strategies.shadowEtfRotation, config: ETF_PRESETS[s.etfPreset].config }; } : undefined,
       symbols: etfSymbols(), report: (event, detail) => app.log.info({ event, ...detail }, 'Shadow ETF rotation') });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Shadow ETF rotation'), 60000); });
@@ -201,6 +212,7 @@ export function createApp(
   if (environment.INTRADAY_TAKE_PROFIT_DRY_RUN_ENABLED) {
     if (!dependencies.intradaySignals) throw new Error('Intraday signal repository required');
     const step = createTakeProfitWatch({ account: dependencies.accountBroker, market: dependencies.marketBroker, signals: dependencies.intradaySignals,
+      isEnabled: settings ? () => settings.isEnabled('takeProfitWatch') : undefined,
       report: (event, detail) => app.log.info({ event, ...detail }, 'Take profit watch') });
     let stop: (() => Promise<void>) | undefined;
     app.addHook('onReady', async () => { stop = startDailyScheduleTimer(step, (event) => app.log.error({ event }, 'Take profit watch'), 60000); });

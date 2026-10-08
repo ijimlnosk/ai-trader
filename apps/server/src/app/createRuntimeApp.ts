@@ -4,6 +4,7 @@ import type { IntradaySignalRepository } from '../application/strategy/takeProfi
 import type { DisclosureRepository } from '../application/disclosures/ports.ts';
 import type { InsightReadRepository } from '../application/console/insights.ts';
 import type { ShadowTradeRepository } from '../application/strategy/shadowDayTrader.ts';
+import { createEffectiveSettingsReader, riskPolicyFrom, type OwnerSettingsRepository } from '../application/settings/index.ts';
 import { createOpenDartSource } from '../infrastructure/disclosures/openDart.ts';
 import type { TradingControlRepository } from '../application/controls/index.ts';
 import type { ApiQuota, NewsRepository } from '../application/news/ports.ts';
@@ -33,7 +34,7 @@ export function createRuntimeApp(
   dailySnapshotRepository?: DailySnapshotRepository, consoleReadRepository?: ConsoleReadRepository, auth?: AuthService, executionAccount?: string, tradingControls?: TradingControlRepository,
   newsRepository?: NewsRepository, apiQuota?: ApiQuota, assessments?: AssessmentRepository, minuteBarRepository?: MinuteBarRepository,
   intradaySignals?: IntradaySignalRepository, disclosures?: DisclosureRepository, insightsRead?: InsightReadRepository,
-  shadowTrades?: ShadowTradeRepository,
+  shadowTrades?: ShadowTradeRepository, ownerSettings?: OwnerSettingsRepository,
 ) {
   if (environment.BROKER_MODE !== 'paper') throw new Error('Live broker is not implemented');
   if (environment.PAPER_ORDER_EXECUTION_ENABLED && !orderRepository) throw new Error('OrderRepository is required for paper execution');
@@ -68,13 +69,16 @@ export function createRuntimeApp(
     ...(insightsRead ? { insightsRead } : {}),
     // Separate KIS session (quotes only, own pacing) so virtual trading never queues production calls.
     ...(shadowTrades ? { shadowTrades } : {}),
+    ...(ownerSettings ? { ownerSettings } : {}),
     // Same KIS session and pacing as production: the provider's per-second limit is per app key, and two
     // independently paced sessions collided (EGW00201, 2026-10-07). Virtual calls are sequential, so a
     // production call waits for at most one of them; the virtual trader is idle 09:04–09:10.
     ...((environment.SHADOW_DAY_TRADING_ENABLED || environment.SHADOW_ETF_ROTATION_ENABLED) && shadowTrades ? { shadowMarket: marketBroker ?? broker, shadowHistory: broker } : {}),
     ...(environment.DART_API_KEY ? { disclosureSource: createOpenDartSource({ apiKey: environment.DART_API_KEY }) } : {}),
     orders: orderRepository ? createOrderServices({ repository: orderRepository, market: marketBroker ?? broker,
-      account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED }) : undefined,
+      account, broker, enabled: environment.PAPER_ORDER_EXECUTION_ENABLED, killSwitchEnabled: environment.TRADING_KILL_SWITCH_ENABLED,
+      // The owner's tightened limits apply to every paper order; settings are per execution account.
+      ...(ownerSettings && executionAccount ? { riskPolicy: ((read) => async () => riskPolicyFrom(await read()))(createEffectiveSettingsReader(ownerSettings, executionAccount)) } : {}) }) : undefined,
   }, logger);
   return app;
 }

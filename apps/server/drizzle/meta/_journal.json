@@ -113,6 +113,13 @@
       "when": 1791342844681,
       "tag": "0015_take_profit_thresholds",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791427518399,
+      "tag": "0016_owner_settings",
+      "breakpoints": true
     }
   ]
 }
