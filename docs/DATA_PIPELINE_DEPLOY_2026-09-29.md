@@ -315,3 +315,11 @@ and healthy; live false. First rotation: 2026-10-12 (first session of the next w
 First virtual day-trading session (day-v1, 2026-10-07 from 11:14): 14 fills, 6 round trips — 2 stops (069540, 256840),
 3 trailing exits in profit (033160, 490470, 012210), 1 close exit (028670). Realized −7,703 KRW after costs; 043260 and
 257720 (4 shares each) held overnight by the 15:15 rule.
+
+## Owner settings deployed (2026-10-08 12:11 KST)
+
+Commit `91bd70d` (decision 0022, migration 0016). Evidence `/home/jinsol/ai-trader-backups/owner-settings-20261008`; replaced
+files matched `b712e79`. The first build (11:51) failed on npm registry timeouts (ETIMEDOUT/EAI_AGAIN) and changed nothing
+running; the retry built server and web, applied 0016 (`owner_settings` empty), and restarted both (healthy). Settings
+endpoints return 401 without a session. Production read of today's settings returns the defaults and policy `v1`.
+No error-level log or EGW00201 in the first minutes. Not yet inspected in a browser.
