@@ -323,3 +323,15 @@ files matched `b712e79`. The first build (11:51) failed on npm registry timeouts
 running; the retry built server and web, applied 0016 (`owner_settings` empty), and restarted both (healthy). Settings
 endpoints return 401 without a session. Production read of today's settings returns the defaults and policy `v1`.
 No error-level log or EGW00201 in the first minutes. Not yet inspected in a browser.
+
+## Second virtual day-trading session (day-v1, 2026-10-08)
+
+12 fills. Both overnight holdings were stopped at 09:10 (043260 −5,571, 257720 −6,053 KRW); 09:10 entries 033790 and
+417840 hit the +5% target at 09:22/09:23 (+7,902, +7,127). No entry from 09:23 until the server restart for owner
+settings (12:10): the morning watchlist had no symbol at a new high inside the +1–8% band (server logs before the restart
+are gone, so the list itself is not recoverable). The restart rebuilt the watchlist from midday quotes (12:17, 11 symbols)
+and the first look after a restart always counts as a new high, so 098460, 204270 and 036540 were bought at 12:19; all
+three were sold by the 15:15 close rule (−1,304, −4,469, +721). Day −1,647 KRW; cumulative −9,350 KRW after costs
+(cash 490,650 of 500,000), nothing held overnight. Momentum paper orders: 018260 SELL 4 and 000810 BUY 1 at 09:05–09:06,
+both filled. No take-profit crossing recorded (none since the rule was added). One EGW00201 (12:43, quote). Separately,
+105 KIS TIMEOUTs from 12:31 to 15:18 (63 balance, 42 quote); 31 take-profit watch cycles skipped on the balance read.
